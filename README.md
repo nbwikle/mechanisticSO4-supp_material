@@ -11,23 +11,41 @@ The following instructions provide details on how to run the source code underly
 The code has been tested with R version 4.0.1, "See Things Now."  The following R packages must be installed before the code will run successfully:
 
 `raster`
+
 `maps`
+
 `ncdf4`
+
 `data.table`
+
 `stringr`
+
 `rgdal`
+
 `mvnfast`
+
 `sp`
+
 `rwc`
+
 `matrixStats`
+
 `ggridges`
+
 `dplyr`
+
 `forcats`
+
 `viridis`
+
 `hrbrthemes`
+
 `Matrix`
+
 `TruncatedNormal`
+
 `inborutils`
+
 `INLA`
 
 
