@@ -62,11 +62,11 @@ Open and run the `main.R` file, found in the `./src/` folder.  Note that this sc
 
 ### Step Seven: 
 
-- Generates posterior draws (via MCMC) from the 4 models considered in the manuscript. The samples are stored as RDS files in `./output/`. CAUTION: THIS WILL TAKE A VERY LONG TIME. If possible, it is recommended that the individual steps 2-5 found in `./src/so4-mcmc.R` be completed in parallel, if possible.
+- Generates posterior draws (via MCMC) from the 4 models considered in the manuscript. The samples are stored as RDS files in `./output/`. **CAUTION: THIS WILL TAKE A VERY LONG TIME**. If possible, it is recommended that the individual steps 2-5 found in `./src/so4-mcmc.R` be completed in parallel, if possible.
 
 ### Step Eight:  
 
-- Summarizes the posterior draws with Figures, Tables, and results found in Section 4 of the manuscript. The figures will be saved as PNG files in `./output/`. CAUTION: THIS MAY TAKE UP TO 5 HOURS (due to the creation of Figure 4c).
+- Summarizes the posterior draws with Figures, Tables, and results found in Section 4 of the manuscript. The figures will be saved as PNG files in `./output/`. **CAUTION: THIS MAY TAKE UP TO 5 HOURS** (due to the creation of Figure 4c).
 
 ### Step Nine:
 
