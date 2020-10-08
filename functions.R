@@ -1,0 +1,3151 @@
+
+### functions.R
+### author: Nathan Wikle, unless otherwise specified.
+###
+### A collection of function definitions used throughout the sulfate analysis.
+
+################################################################################
+### 1. Functions for data cleaning.
+################################################################################
+
+### A. Cleaning emissions data
+
+CreateSulfurCategories = function(dat, sulfurvar){
+  # Author: Cory Zigler
+  # Create sulfur categories based on EPA classifications.
+  # Data comes from EIA_767: 
+  #   http://www.eia.gov/survey/form/eia_767/instructions_form.pdf:
+  # Sulfur Content and Ash Content, columns (d) and (e), (i) and (j), 
+  #   report content to nearest 0.01 percent for sulfur and the nearest 0.1 % 
+  #   for ash. 
+  # From John Bachman on 8/28/2014: 
+  # --- Looking up some numbers quickly on the net, I found this: "Subbituminous 
+  # --- Wyoming coal is only 0.35 percent sulfur by weight, while Kentucky coal 
+  # --- is 1.59 percent sulfur.” I certainly recall Indiana, West Va coals in 
+  # --- the 2% range, and that western coal number sounds right.
+  # From Barrett on 9/3/2014:
+  # --- A Feb 1993 Report from EIA (Appendix B Table C1) creates categories: 
+  # --- <=0.60 (Low Sulfur), 0.61 - 1.67 (Medium Sulfur), >=1.68 (High Sulfur).
+  # Input:
+  #   dat:
+  #   sulfurvar:
+  # Output:
+  #   
+  
+  # EPA's sulfur categories
+  SulfurCatCuts = c(0, 0.60, 1.67, max(sulfurvar, na.rm = TRUE))
+  dat$SulfurCat = as.numeric(cut(sulfurvar, breaks = SulfurCatCuts, 
+                                 right = TRUE, include.lowest = TRUE))
+  
+  print("Variable Created: SulfurCat, equal to 1,2,3 for Low, Medium, High Sulfur Coal, respectively.")
+  
+  dat[, LowScoal := SulfurCat==1]
+  print("Variable Created: LowScoal, indicator that SulfurCat==1")
+  dat[, MedScoal := SulfurCat==2]
+  print("Variable Created: MedScoal, indicator that SulfurCat==2")
+  dat[, HighScoal := SulfurCat==3]
+  print("Variable Created: LowScoal, indicator that SulfurCat==3")
+  
+  return(dat)
+}
+
+NOxcontroltechnologies = function(dat){
+  # Author: Cory Zigler.
+  # Takes unit-level data set and creates several indicators denoting the
+  #   presence/absence of various Nox control strategies.
+  # Input:
+  #   dat: data frame with NOx variables
+  # Output:
+  #   Data frame with new indicator variables.
+  
+  # create various indicator variables
+  dat$SCR = FALSE
+  dat$SCR[dat$NOx.Scrub1 == "Selective Catalytic Reduction" | 
+            dat$NOx.Scrub2 == "Selective Catalytic Reduction" |  
+            dat$NOx.Scrub3 == "Selective Catalytic Reduction" |
+            dat$NOx.Scrub4 == "Selective Catalytic Reduction"] = TRUE
+  print("Variable Created: SCR")
+  
+  dat$SNCR = FALSE
+  dat$SNCR[dat$NOx.Scrub1 == "Selective Non-catalytic Reduction" | 
+             dat$NOx.Scrub2 == "Selective Non-catalytic Reduction" |  
+             dat$NOx.Scrub3 == "Selective Non-catalytic Reduction" |
+             dat$NOx.Scrub4 == "Selective Non-catalytic Reduction"] = TRUE
+  print("Variable Created: SNCR")
+  
+  dat$LowNOxBurner = FALSE
+  dat$LowNOxBurner[substr(dat$NOx.Scrub1, 1, 7) == "Low NOx" | 
+                     substr(dat$NOx.Scrub2, 1, 7) == "Low NOx" | 
+                     substr(dat$NOx.Scrub3, 1, 7) == "Low NOx" | 
+                     substr(dat$NOx.Scrub4, 1, 7) == "Low NOx" ] = TRUE
+  print("Variable Created: LowNOxBurner")
+  
+  dat$OverFire = FALSE
+  dat$OverFire[dat$NOx.Scrub1 == "Overfire Air" | 
+                 dat$NOx.Scrub2 == "Overfire Air" | 
+                 dat$NOx.Scrub3 == "Overfire Air" | 
+                 dat$NOx.Scrub4 == "Overfire Air" ] = TRUE
+  print("Variable Created: OverFire")
+  
+  dat$Ammonia = FALSE
+  dat$Ammonia[dat$NOx.Scrub1 == "Ammonia Injection" | 
+                dat$NOx.Scrub2 == "Ammonia Injection" | 
+                dat$NOx.Scrub3 == "Ammonia Injection" | 
+                dat$NOx.Scrub4 == "Ammonia Injection" ] = TRUE
+  print("Variable Created: Ammonia")
+  
+  dat$CombustMod = FALSE
+  dat$CombustMod[dat$NOx.Scrub1 == "Combustion Modification/Fuel Reburning" | 
+                   dat$NOx.Scrub2 == "Combustion Modification/Fuel Reburning" | 
+                   dat$NOx.Scrub3 == "Combustion Modification/Fuel Reburning" | 
+                   dat$NOx.Scrub4 == "Combustion Modification/Fuel Reburning" ] = TRUE
+  print("Variable Created: CombustMod")
+  
+  dat$WaterInj = FALSE
+  dat$WaterInj[dat$NOx.Scrub1 == "Water Injection" | 
+                 dat$NOx.Scrub2 == "Water Injection" | 
+                 dat$NOx.Scrub3 == "Water Injection" | 
+                 dat$NOx.Scrub4 == "Water Injection" ] = TRUE
+  print("Variable Created: WaterInj")
+  
+  dat$OtherNOx = FALSE
+  dat$OtherNOx[dat$NOx.Scrub1 == "Other" | 
+                 dat$NOx.Scrub2 == "Other" | 
+                 dat$NOx.Scrub3 == "Other" | 
+                 dat$NOx.Scrub4 == "Other" ] = TRUE
+  print("Variable Created: OtherNOx")
+  
+  return(dat)
+}
+
+SO2controltechnologies = function(dat){
+  # Author: Cory Zigler.
+  # Takes unit-level data set and creates several indicators denoting the
+  #   presence/absence of various SO2 control strategies.
+  # Input:
+  #   dat: data frame with SO2 control variables.
+  # Output:
+  #   Add indicators denoting the presence/absence of SO2 control strategies.
+  
+  dat$DryLimeFGD = FALSE
+  dat$DryLimeFGD[(dat$SO2.Scrub1 == "Dry Lime FGD") | 
+                   (dat$SO2.Scrub2 %in% "Dry Lime FGD") |  
+                   (dat$SO2.Scrub3 %in% "Dry Lime FGD") | 
+                   (dat$SO2.Scrub4 %in% "Dry Lime FGD")] = TRUE
+  print("Variable Created: DryLimeFGD")
+  #with(dat, mean(DryLimeFGD))
+  
+  dat$DrySorbInj = FALSE
+  dat$DrySorbInj[(dat$SO2.Scrub1 == "Dry Sorbent Injection") | 
+                   (dat$SO2.Scrub2 %in% "Dry Sorbent Injection") |  
+                   (dat$SO2.Scrub3 %in% "Dry Sorbent Injection") | 
+                   (dat$SO2.Scrub4 %in% "Dry Sorbent Injection")] = TRUE
+  print("Variable Created: DrySorbInj")
+  #with(dat, mean(DrySorbInj))
+  
+  dat$DualAlk = FALSE
+  dat$DualAlk[(dat$SO2.Scrub1 == "Dual Alkali") | 
+                (dat$SO2.Scrub2 %in% "Dual Alkali") |  
+                (dat$SO2.Scrub3 %in% "Dual Alkali") | 
+                (dat$SO2.Scrub4 %in% "Dual Alkali")] = TRUE
+  print("Variable Created: DualAlk")
+  #with(dat, mean(DualAlk))
+  
+  dat$FluidizedBed = FALSE
+  dat$FluidizedBed[(dat$SO2.Scrub1 == "Fluidized Bed Limestone Injection") | 
+                     (dat$SO2.Scrub2 %in% "Fluidized Bed Limestone Injection") |  
+                     (dat$SO2.Scrub3 %in% "Fluidized Bed Limestone Injection") | 
+                     (dat$SO2.Scrub4 %in% "Fluidized Bed Limestone Injection")] = TRUE
+  print("Variable Created: FluidizedBed")
+  #with(dat, mean(FluidizedBed))
+  
+  
+  dat$MagOx = FALSE
+  dat$MagOx[(dat$SO2.Scrub1 == "Magnesium Oxide") | 
+              (dat$SO2.Scrub2 %in% "Magnesium Oxide") |  
+              (dat$SO2.Scrub3 %in% "Magnesium Oxide") | 
+              (dat$SO2.Scrub4 %in% "Magnesium Oxide")] = TRUE
+  print("Variable Created: MagOx")
+  #with(dat, mean(MagOx))
+  
+  dat$SodiumBased = FALSE
+  dat$SodiumBased[(dat$SO2.Scrub1 == "Sodium Based") | 
+                    (dat$SO2.Scrub2 %in% "Sodium Based") |  
+                    (dat$SO2.Scrub3 %in% "Sodium Based") | 
+                    (dat$SO2.Scrub4 %in% "Sodium Based")] = TRUE
+  print("Variable Created: SodiumBased")
+  #with(dat, mean(SodiumBased))
+  
+  dat$WetLimeFGD = FALSE
+  dat$WetLimeFGD[(dat$SO2.Scrub1 == "Wet Lime FGD") | 
+                   (dat$SO2.Scrub2 %in% "Wet Lime FGD") |  
+                   (dat$SO2.Scrub3 %in% "Wet Lime FGD") | 
+                   (dat$SO2.Scrub4 %in% "Wet Lime FGD")] = TRUE
+  print("Variable Created: WetLimeFGD")
+  #with(dat, mean(WetLimeFGD))
+  
+  dat$WetLime = FALSE
+  dat$WetLime[(dat$SO2.Scrub1 == "Wet Limestone") | 
+                (dat$SO2.Scrub2 %in% "Wet Limestone") |  
+                (dat$SO2.Scrub3 %in% "Wet Limestone") | 
+                (dat$SO2.Scrub4 %in% "Wet Limestone")] = TRUE
+  print("Variable Created: WetLime")
+  #with(dat, mean(WetLime))
+  
+  dat$OtherSO2 = FALSE
+  dat$OtherSO2[(dat$SO2.Scrub1 == "Other") | 
+                 (dat$SO2.Scrub2 %in% "Other") |  
+                 (dat$SO2.Scrub3 %in% "Other") | 
+                 (dat$SO2.Scrub4 %in% "Other")] = TRUE
+  print("Variable Created: OtherSO2")
+  #with(dat, mean(OtherSO2))
+  
+  return(dat)
+}
+
+region <- function(countyfips){
+  # Author: Cory Zigler
+  # Converts FIPS to any of 7 regions used in EPA's 1996 PM Criteria Doc.
+  # Input: 
+  #   countyfips: FIPS codes.
+  # Output:
+  #   Region specified by FIPS.
+  
+  data(state.fips) # from maps
+  
+  # Define 7 regions by state names
+  Northeast = c("ME", "NH", "VT", "NY", "PA", "DE", "NJ", "MD", "DC", 
+                "VA", "MA", "CT", "RI")
+  IndustrialMidwest = c("WV", "OH", "KY", "IN", "IL", "WI", "MI")
+  Southeast = c("FL", "GA", "SC", "NC", "TN", "AL", "MS", "AR","LA")
+  UpperMidwest = c("MN", "IA", "MO", "KS", "NE", "SD", "ND")
+  Southwest = c("TX", "OK", "NM", "AZ")
+  SouthernCalifornia = c("CA")
+  Northwest = c("NV", "UT", "CO", "WY", "MT", "ID", "OR", "WA")
+  
+  # Define 7 regions by state FIPS codes (approximation)
+  Northeast.fips = unique(state.fips$fips[state.fips$abb %in% Northeast])
+  IndustrialMidwest.fips = unique(state.fips$fips[state.fips$abb %in% IndustrialMidwest])
+  Southeast.fips = unique(state.fips$fips[state.fips$abb %in% Southeast])
+  UpperMidwest.fips = unique(state.fips$fips[state.fips$abb %in% UpperMidwest])
+  Southwest.fips = unique(state.fips$fips[state.fips$abb %in% Southwest])
+  SouthernCalifornia.fips = unique(state.fips$fips[state.fips$abb %in% SouthernCalifornia])
+  Northwest.fips = unique(state.fips$fips[state.fips$abb %in% Northwest])
+  
+  # Note: If FIPS codes have numerical values (i.e., some have 4 digits 
+  #   without leading 0's), then run a following line.
+  # countyfips <- as.character(formatC(countyfips, format="d", width=5, flag="0"))
+  
+  # convert county fips to regions
+  State_FIPS <- as.numeric(substr(countyfips, 1, 2))
+  new_region <- ifelse(State_FIPS %in% Northeast.fips, "Northeast",
+                       ifelse(State_FIPS %in% IndustrialMidwest.fips, "IndustrialMidwest",
+                              ifelse(State_FIPS %in% Southeast.fips, "Southeast",
+                                     ifelse(State_FIPS %in% UpperMidwest.fips, "UpperMidwest",
+                                            ifelse(State_FIPS %in% Southwest.fips, "Southwest",
+                                                   ifelse(State_FIPS %in% SouthernCalifornia.fips, "SouthernCalifornia", 
+                                                          "Northwest"))))))
+  
+  return(new_region)
+}
+
+cleanData <- function(dat){
+  # This function is used to clean the "MonthlyUnitData.RDS" data
+  #   (coal-fired power plant facility data).  The output includes the 
+  #   same variables as the annual unit data.
+  # Input:
+  #   dat: data frame from "MonthlyUnitData.Rda"
+  # Output:
+  #   Cleaned data frame, only keeping important variables.
+  
+  # make pctCapacity variable:
+  pct.capacity <- dat$Heat.Input..MMBtu./ dat$Capacity
+  
+  # # indices of columns to keep
+  # inds1 <- c(83, 4, 9, 10, 46, 8, 106, 105, 25, 18, 19, 21, 23, 22)
+  # inds2 <- c(51, 16, 17, 15, 86)
+  
+  # create new data frame with important columns
+  new.dat <- cbind(dat[, c(83,4,9,10,46,8,106,105,25,18,19,21,23,22)], 
+                   pct.capacity, 
+                   dat[, c(51,16,17,15,86)])
+  
+  # rename columns
+  colnames(new.dat) <- c("uID",
+                         "Year",
+                         "Month",
+                         "Sulfur.Content",
+                         "Has.Scrubber",
+                         "Initial.Year.of.Operation",
+                         "S_n_CR",
+                         "NumNOxControls",
+                         "Operating.Time",
+                         "SO2..tons.",
+                         "NOx..tons.",
+                         "CO2..short.tons.",
+                         "Gross.Load..MW.h.",
+                         "Heat.Input..MMBtu.",
+                         "pctCapacity",
+                         "Is.Phase2",
+                         "Facility.Latitude.x",
+                         "Facility.Longitude.x",
+                         "FIPS",
+                         "Region")
+  
+  # return new data frame
+  new.dat
+}
+
+unitNames <- function(annual = FALSE){
+  # Create vector of column names for the emissions data, to better match 
+  #   facility variable names.
+  # Input: 
+  #   annual: logical flag indicating if this is performed to be performed
+  #     for annual or monthly data.
+  # Output:
+  #   Vector of column names.
+  
+  # column names
+  c.names <- c("uID",
+               "Year",
+               "Month",
+               "SulfurContent",
+               "ScrubbedUnit",
+               "initialYear",
+               "S_n_CR",
+               "NumNOxControls",
+               "OpTime",
+               "SO2emissions",
+               "NOxemissions",
+               "CO2emissions",
+               "Load",
+               "HeatInput",
+               "pctCapacity",
+               "Phase2",
+               "Fac.Latitude",
+               "Fac.Longitude",
+               "Fac.FIPS",
+               "Fac.Region")
+  
+  # remove "Month" name if data are annual
+  if (annual){
+    c.names <- c.names[-c(3)]
+  }
+  
+  # return column names
+  c.names
+}
+
+trimData <- function(dat, ex = c(-100, -81.5, 30.5, 41.7)){
+  # Trim emissions facilities data to only include facilities within a given
+  #   spatial extent.
+  # Input: 
+  #   dat: data frame with emissions data.
+  #   ex: spatial extent (default = central USA).
+  # Output
+  #   Trimmed data frame, with unit and fac level data.
+
+  # identify emissions units within spatial extent
+  idx.unit <- which(dat$unit$Fac.Longitude > ex[1]
+                    & dat$unit$Fac.Longitude < ex[2]
+                    & dat$unit$Fac.Latitude > ex[3]
+                    &  dat$unit$Fac.Latitude < ex[4])
+  
+  # identify emissions facilities within spatial extent
+  idx.fac <- which(dat$fac$Fac.Longitude > ex[1]
+                   & dat$fac$Fac.Longitude < ex[2]
+                   & dat$fac$Fac.Latitude > ex[3]
+                   &  dat$fac$Fac.Latitude < ex[4])
+  
+  # create new list of data frames (units and fac) found within ex
+  final.dat <- list(unit = dat$unit[idx.unit,],
+                    fac = dat$fac[idx.fac,])
+  
+  # return final.dat list
+  final.dat
+}
+
+trimYear <- function(dat, year){
+  # Trim emissions data to the specified year.
+  # Input:
+  #   dat: emissions data frame.
+  #   year: year of interest.
+  # Output:
+  #   Data frame with emissions data for the specified year.
+  
+  # indices for units and facilities
+  idx.unit <- which(dat$unit$Year == year)
+  idx.fac <- which(dat$fac$Year == year)
+  
+  # new list of data frames, restricted to year
+  new.dat <- list(unit = dat$unit[idx.unit,],
+                  fac = dat$fac[idx.fac,])
+  
+  # return new list
+  new.dat
+}
+
+createSimpleX <- function(r, emissions){
+  # Create the X design matrix for the pollution data.
+  # Input:
+  #   r: a single raster object
+  #   emissions: a data frame with power plant emissions data.
+  # Output:
+  #   A design vector, X, representing the total amount of emissions in 
+  #     each grid of the raster.
+  
+  # number of cells in rectangle
+  n.cells <- length(values(r))
+  
+  # create an SO2 variable using the emissions data
+  em.vals <- rep(0, n.cells)
+  em.inds <- cellFromXY(r, cbind(emissions$Fac.Longitude, emissions$Fac.Latitude))
+  
+  # make sure unique inds are
+  unique.inds <- unique(em.inds)
+  
+  for(curr.ind in unique.inds){
+    spec.points <- em.inds == curr.ind
+    em.vals[curr.ind] <- sum(emissions$totSO2emissions[spec.points])
+  }
+  
+  #em.vals[em.inds] <- emissions$totSO2emissions
+  
+  # combine all values into a single vector
+  X <- em.vals
+  
+  # return X
+  return(X)
+}
+
+### B. Cleaning meteorology/landscape covariate data
+
+yearRaster <- function(year.in, met = "temp"){
+  # Extract the yearly mean values for a specified meteorology raster.
+  # Input:
+  #   year.in: specifies which year of data to grab (e.g., 2011).
+  #   met: type of meteorological data 
+  #     (options include "temp", "precip", "humid", "v-wind", "uwind").
+  # Output:
+  #   Raster with specified meteorological data.
+  
+  # specify the input file
+  if (met == "temp"){
+    # temperature at 2m
+    file.in <- "./data/air.2m.mon.mean.nc"
+  } else if (met == "precip"){
+    # total precip
+    file.in <- "./data/apcp.mon.mean.nc"
+  } else if (met == "humid"){
+    # relative humidity at 2m
+    file.in <- "./data/rhum.2m.mon.mean.nc"
+  } else if (met == "v-wind"){
+    # v (north-south) wind component
+    file.in <- "./data/vwnd.10m.mon.mean.nc"
+  } else if (met == "u-wind"){
+    # u (east-west) wind component
+    file.in <- "./data/uwnd.10m.mon.mean.nc"
+  }
+  
+  # determine which raster bands to grab
+  bands <- ((year.in - 1979) * 12) + 1:12
+  
+  # objects to save rasters and month values
+  raster.month <- list()
+  month.vals <- matrix(NA_real_, nrow = 96673, ncol = 12)
+  
+  for (i in 1:length(bands)){
+    # grab raster for each month in the year of interest
+    raster.month[[i]] <- raster(file.in, band = bands[i])
+    month.vals[,i] <- values(raster.month[[i]])
+  }
+  
+  if (met == "temp"){
+    # convert temps to celsius
+    month.vals <- month.vals - 273.15
+  }
+  
+  # take the annual mean for the given year
+  annual.mean <- rowMeans(month.vals)
+  annual.mean[is.na(annual.mean)] <- NA
+  
+  # save results in a raster
+  annual.raster <- raster.month[[1]]
+  values(annual.raster) <- annual.mean
+  
+  # return raster object
+  return(annual.raster)
+}
+
+trimToSO4 <- function(new.raster, so4.raster){
+  # Trim environmental raster to match resolution and projection 
+  #   of so4 raster.
+  # Input:
+  #   new.raster: raster with environmental covariate (to be changed).
+  #   so4.raster: raster with so4 data (default res/proj).
+  # Output:
+  #   Environmental raster with res. and projection matching so4.raster.
+  
+  # change raster projection of SO4 to match new raster
+  so <- projectRaster(so4.raster, 
+                      crs = crs(projection(new.raster)), 
+                      method = "bilinear")
+  
+  # crop new raster to match SO4 etent
+  new.rs <- crop(new.raster, extent(so))
+  
+  # convert new raster to SO4 resolution and projection
+  newc <- so
+  values(newc) <- NA
+  xy <- xyFromCell(so, 1:ncell(so))
+  idx <- cellFromXY(new.rs, xy)
+  new.vals <- values(new.rs)[idx]
+  values(newc) <- new.vals
+  new.rstr <- projectRaster(newc, 
+                            crs = crs(projection(so4.raster)), 
+                            method = "bilinear")
+  
+  # transfer values between non matching raster objects
+  final <- resample(new.rstr, so4.raster)
+  
+  # return new raster object
+  return(final)
+}
+
+################################################################################
+### 2. Functions for analysis.
+################################################################################
+ 
+### A. time averaged, coupled SO2-SO4, no wind
+
+ll.data <- function(theta, y, X, mats){
+  # Calculate the log-likelihood given sampled parameters for coupled 
+  #   SO2-SO4 time-averaged model (ASSUMES NO WIND!).
+  # Input:
+  #   theta: sampled parameters
+  #   y: observed data
+  #   X: vector of SOZ emissions
+  #   mats: matrix operators representing diffusion, advection, etc.
+  # Output:
+  #   Log-likelihood of the coupled SO2-SO4 model, without wind.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  
+  # create matrices
+  D <- mats$D
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + Diagonal(n.cells, 1)
+  
+  # constanst for log-likelihood calc.
+  A1.y <- A.1 %*% y
+  sources <- solve(A.2, X * beta)
+  sources.cp <- t(sources) %*% sources
+  log.det.A1 <- as.numeric(determinant(A.1)$modulus)
+  
+  # log-likelihood
+  ll <- (-n.cells * log(s2) / 2) + log.det.A1 -
+    1 / 2 / s2 * (t(A1.y) %*% A1.y  - 2 * t(A1.y) %*% sources + sources.cp)
+  
+  # return ll
+  return(as.numeric(ll))
+}
+
+coupledMCMC <- function(N, y, X, mats, params, priors, update, iter){
+  # MCMC sampler for the coupled SO2-SO4 time-averaged model (ASSUMES NO WIND!).
+  # Input:
+  #   N: number of MCMC samples.
+  #   y: observed data.
+  #   X: vector of SO2 outputs.
+  #   mats: matrix operators approximating physical processes.
+  #   params: vector of initial parameters.
+  #   priors: hyperparameters for prior distribution.
+  #   update: number of iterations at which to update MCMC proposal dist
+  #     (uses Shaby and Wells (2009) algorithm).
+  #   iter: when to print out iterations.
+  # Output:
+  #   List with MCMC samples, DIC calc, and adaptive structures used in MCMC 
+  # proposals.
+    
+  n.cells <- length(y)
+
+  # initial parameter values
+  gamma.k <- params$gamma
+  xi.k <- params$xi
+  beta.k <- params$beta
+  s2.k <- params$s2
+  delta.k <- params$delta
+  
+  # all parameters in a vector
+  theta.k <- c(gamma.k, xi.k, beta.k, s2.k, delta.k)
+  
+  # matrix to hold parameters
+  samples <- matrix(NA_real_, nrow = N, ncol = length(theta.k))
+  colnames(samples) <- c("gamma", "xi", "beta", "s2", "delta")
+  
+  # vector to hold correction factor samples for DIC calculation
+  dic.vec <- rep(NA_real_, length = N)
+  
+  # calculate log-likelihood for current values
+  ll.curr <- ll.data(theta.k, y, X, mats)
+  
+  ### create adaptive structures
+  
+  # matrix to hold samples
+  update.samples <- matrix(NA_real_, nrow = update, ncol = length(theta.k))
+  
+  # default constants
+  c0 <- 1; c1 <- 0.8; r.opt <- 0.234; time <- 1
+  
+  # structure for gamma
+  ad.gamma <- list()
+  ad.gamma$s0 <- 1
+  ad.gamma$var <- 10
+  ad.gamma$n.jumps <- 0
+  ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+  
+  # structure for xi
+  ad.xi <- list()
+  ad.xi$s0 <- 1
+  ad.xi$var <- 1
+  ad.xi$n.jumps <- 0
+  ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+  
+  # structure for s2
+  ad.s2 <- list()
+  ad.s2$s0 <- 1
+  ad.s2$var <- 10
+  ad.s2$n.jumps <- 0
+  ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+  
+  ### generate mcmc samples
+  for (k in 1:N){
+    
+    # a. sample gamma
+    gamma.star <- rnorm(n = 1, mean = gamma.k, sd = ad.gamma$sd)
+    
+    if (gamma.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[1] <- gamma.star
+      ll.star <- ll.data(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(gamma.star, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(gamma.k, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new gamma
+        gamma.k <- gamma.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.gamma$n.jumps <- ad.gamma$n.jumps + 1
+      }
+    }
+    
+    # b. sample xi
+    xi.star <- rnorm(n = 1, mean = xi.k, sd = ad.xi$sd)
+    
+    if (xi.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[2] <- xi.star
+      ll.star <- ll.data(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(xi.star, rate = priors$xi, log = TRUE)
+      mh.denom <- ll.curr + dexp(xi.k, rate = priors$xi, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new xi
+        xi.k <- xi.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.xi$n.jumps <- ad.xi$n.jumps + 1
+      }
+    }
+    
+    # c. sample s2
+    s2.star <- rnorm(n = 1, mean = s2.k, sd = ad.s2$sd)
+    
+    if (s2.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[4] <- s2.star
+      ll.star <- ll.data(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(s2.star, rate = priors$s2, log = TRUE)
+      mh.denom <- ll.curr + dexp(s2.k, rate = priors$s2, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new s2
+        s2.k <- s2.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.s2$n.jumps <- ad.s2$n.jumps + 1
+      }
+    }
+    
+    # d. sample beta
+    
+    D <- mats$D
+    n.cells <- nrow(D)
+    A.1 <- gamma.k * D + Diagonal(n.cells, delta.k)
+    A.2 <- (gamma.k / xi.k) * D + Diagonal(n.cells, 1)
+    A2inv.X <- solve(A.2, X)
+    A1.y <- A.1 %*% y
+    
+    beta.var <- 1 / (as.numeric((t(A2inv.X) %*% A2inv.X / s2.k)) + (1 / priors$beta))
+    beta.mean <- beta.var * as.numeric(t(A2inv.X) %*% A1.y) / s2.k
+    
+    beta.k <- rnorm(n = 1, mean = beta.mean, sd = sqrt(beta.var))
+    
+    # calculate new likelihood
+    theta.k[3] <- beta.k
+    ll.curr <- ll.data(theta.k, y, X, mats)
+    
+    # save ll for DIC calc
+    dic.vec[k] <- -2 * ll.curr
+    
+    # d. save theta.k
+    samples[k,] <- theta.k
+    
+    # e. update adaptive structures
+    
+    if (k %% update > 0){
+      # add theta.k to sample matrix
+      update.samples[k %% update, ] <- theta.k
+    } else {
+      # add theta.k to sample matrix
+      update.samples[update, ] <- theta.k
+      
+      # update constants
+      gamma1 <- 1 / time^c1; gamma2 <- c0 * gamma1
+      
+      ### update gamma adaptive structure
+      s.hat <- var(update.samples[,1])
+      r.hat <- ad.gamma$n.jumps / update
+      log.var <- log(ad.gamma$var) + gamma2 * (r.hat - r.opt)
+      ad.gamma$var <- exp(log.var)
+      ad.gamma$s0 <- ad.gamma$s0 +
+        gamma1 * (s.hat - ad.gamma$s0)
+      ad.gamma$n.jumps <- 0
+      ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+      
+      ### update xi adaptive structure
+      s.hat <- var(update.samples[,2])
+      r.hat <- ad.xi$n.jumps / update
+      log.var <- log(ad.xi$var) + gamma2 * (r.hat - r.opt)
+      ad.xi$var <- exp(log.var)
+      ad.xi$s0 <- ad.xi$s0 +
+        gamma1 * (s.hat - ad.xi$s0)
+      ad.xi$n.jumps <- 0
+      ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+      
+      ### update s2 adaptive structure
+      s.hat <- var(update.samples[,4])
+      r.hat <- ad.s2$n.jumps / update
+      log.var <- log(ad.s2$var) + gamma2 * (r.hat - r.opt)
+      ad.s2$var <- exp(log.var)
+      ad.s2$s0 <- ad.s2$s0 +
+        gamma1 * (s.hat - ad.s2$s0)
+      ad.s2$n.jumps <- 0
+      ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+      
+      # update number of adaptive steps
+      time <- time + 1
+    }
+    
+    
+    # f. print out the current iteration
+    if (iter > 0){
+      if (k %% iter == 0){
+        print(paste("iteration:", k))
+      }
+    }
+  }
+  
+  # save adaptive structures
+  ad.str <- list(gamma = ad.gamma,
+                 xi = ad.xi,
+                 s2 = ad.s2)
+  
+  # return samples
+  results <- list(samples = samples, dic = dic.vec, ad.str = ad.str)
+  
+  # return samples
+  return(results)
+}
+
+simCoupled <- function(theta, mats, X){
+  # Simulate coupled time-averaged model given samples from posterior 
+  #   (NO WIND!).
+  # Input:
+  #   theta: model parameters
+  #   mats: matrix structures used in model
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Simulated SO4 surface (as vector).
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  
+  # diffusion matrix
+  D <- mats$D
+  
+  # operator matrices
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + Diagonal(n.cells, 1)
+  
+  # SO2 surface
+  sources <- solve(A.2, X * beta)
+  # mean of SO4 model
+  mu <- solve(A.1, sources)
+  
+  # precision matrix
+  Q <- (A.1 %*% A.1) / s2
+  
+  # sample SO4 surface
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+### B. time averaged, coupled SO2-SO4, with wind
+
+ll.data.Wind <- function(theta, y, X, mats){
+  # Calculate the log-likelihood given sampled parameters for coupled 
+  #   SO2-SO4 time-averaged model (WITH WIND!).
+  # Input:
+  #   theta: sampled parameters
+  #   y: observed data
+  #   X: vector of SOZ emissions
+  #   mats: matrix operators representing diffusion, advection, etc.
+  # Output:
+  #   Log-likelihood of the coupled SO2-SO4 model, with wind.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  alpha <- theta[6]
+  
+  # create matrices
+  D <- mats$D
+  C <- mats$C
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + (alpha / xi) * C + Diagonal(n.cells, 1)
+  
+  # constanst for log-likelihood calc.
+  A1.y <- A.1 %*% y
+  sources <- solve(A.2, X * beta)
+  sources.cp <- t(sources) %*% sources
+  log.det.A1 <- as.numeric(determinant(A.1)$modulus)
+  
+  # log-likelihood
+  ll <- (-n.cells * log(s2) / 2) + log.det.A1 -
+    1 / 2 / s2 * (t(A1.y) %*% A1.y  - 2 * t(A1.y) %*% sources + sources.cp)
+  
+  # return ll
+  return(as.numeric(ll))
+}
+
+coupledMCMC.Wind <- function(N, y, X, mats, params, priors, update, iter){
+  # MCMC sampler for the coupled SO2-SO4 model (WITH WIND!).
+  # Input:
+  #   N: number of MCMC samples.
+  #   y: observed data.
+  #   X: vector of SO2 outputs.
+  #   mats: matrix operators approximating physical processes.
+  #   params: vector of initial parameters.
+  #   priors: hyperparameters for prior distribution.
+  #   update: number of iterations at which to update MCMC proposal dist
+  #     (uses Shaby and Wells (2009) algorithm).
+  #   iter: when to print out iterations.
+  # Output:
+  #   List with MCMC samples, DIC calc, and adaptive structures used in MCMC 
+  # proposals.
+  
+  # number of observations
+  n.cells <- length(y)
+
+  # initial parameter values
+  gamma.k <- params$gamma
+  xi.k <- params$xi
+  beta.k <- params$beta
+  s2.k <- params$s2
+  delta.k <- params$delta
+  alpha.k <- params$alpha
+  
+  # all parameters in a vector
+  theta.k <- c(gamma.k, xi.k, beta.k, s2.k, delta.k, alpha.k)
+  
+  # matrix to hold parameters
+  samples <- matrix(NA_real_, nrow = N, ncol = length(theta.k))
+  colnames(samples) <- c("gamma", "xi", "beta", "s2", "delta", "alpha")
+  
+  # vector to hold correction factor samples for DIC calculation
+  dic.vec <- rep(NA_real_, length = N)
+  
+  # calculate log-likelihood for current values
+  ll.curr <- ll.data.Wind(theta.k, y, X, mats)
+  
+  ### create adaptive structures
+  
+  # matrix to hold samples
+  update.samples <- matrix(NA_real_, nrow = update, ncol = length(theta.k))
+  
+  # default constants
+  c0 <- 1; c1 <- 0.8; r.opt <- 0.234; time <- 1
+  
+  # structure for gamma
+  ad.gamma <- list()
+  ad.gamma$s0 <- 1
+  ad.gamma$var <- 10
+  ad.gamma$n.jumps <- 0
+  ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+  
+  # structure for xi
+  ad.xi <- list()
+  ad.xi$s0 <- 1
+  ad.xi$var <- 1
+  ad.xi$n.jumps <- 0
+  ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+  
+  # structure for s2
+  ad.s2 <- list()
+  ad.s2$s0 <- 1
+  ad.s2$var <- 10
+  ad.s2$n.jumps <- 0
+  ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+  
+  # structure for alpha
+  ad.alpha <- list()
+  ad.alpha$s0 <- 1
+  ad.alpha$var <- 1
+  ad.alpha$n.jumps <- 0
+  ad.alpha$sd <- sqrt(ad.alpha$var * ad.alpha$s0)
+  
+  ### generate mcmc samples
+  for (k in 1:N){
+    
+    # a. sample gamma
+    gamma.star <- rnorm(n = 1, mean = gamma.k, sd = ad.gamma$sd)
+    
+    if (gamma.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[1] <- gamma.star
+      ll.star <- ll.data.Wind(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(gamma.star, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(gamma.k, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new gamma
+        gamma.k <- gamma.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.gamma$n.jumps <- ad.gamma$n.jumps + 1
+      }
+    }
+    
+    # b. sample xi
+    xi.star <- rnorm(n = 1, mean = xi.k, sd = ad.xi$sd)
+    
+    if (xi.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[2] <- xi.star
+      ll.star <- ll.data.Wind(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(xi.star, rate = priors$xi, log = TRUE)
+      mh.denom <- ll.curr + dexp(xi.k, rate = priors$xi, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new xi
+        xi.k <- xi.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.xi$n.jumps <- ad.xi$n.jumps + 1
+      }
+    }
+    
+    # sample alpha
+    alpha.star <- rnorm(n = 1, mean = alpha.k, sd = ad.alpha$sd)
+    
+    if (alpha.star > 0){
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[6] <- alpha.star
+      ll.star <- ll.data.Wind(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(alpha.star, mean = 0, sd = priors$alpha.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(alpha.k, mean = 0, sd = priors$alpha.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new xi
+        alpha.k <- alpha.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.alpha$n.jumps <- ad.alpha$n.jumps + 1
+      }
+      
+    }
+    
+    # c. sample s2
+    s2.star <- rnorm(n = 1, mean = s2.k, sd = ad.s2$sd)
+    
+    if (s2.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[4] <- s2.star
+      ll.star <- ll.data.Wind(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(s2.star, rate = priors$s2, log = TRUE)
+      mh.denom <- ll.curr + dexp(s2.k, rate = priors$s2, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new s2
+        s2.k <- s2.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.s2$n.jumps <- ad.s2$n.jumps + 1
+      }
+    }
+    
+    # d. sample beta
+    
+    D <- mats$D
+    C <- mats$C
+    n.cells <- nrow(D)
+    A.1 <- gamma.k * D + alpha.k * C + Diagonal(n.cells, delta.k)
+    A.2 <- (gamma.k / xi.k) * D + (alpha.k / xi.k) * C + Diagonal(n.cells, 1)
+    A2inv.X <- solve(A.2, X)
+    A1.y <- A.1 %*% y
+    
+    beta.var <- 1 / (as.numeric((t(A2inv.X) %*% A2inv.X / s2.k)) + (1 / priors$beta))
+    beta.mean <- beta.var * as.numeric(t(A2inv.X) %*% A1.y) / s2.k
+    
+    beta.k <- rnorm(n = 1, mean = beta.mean, sd = sqrt(beta.var))
+    
+    # calculate new likelihood
+    theta.k[3] <- beta.k
+    ll.curr <- ll.data.Wind(theta.k, y, X, mats)
+    
+    # save ll for DIC calc
+    dic.vec[k] <- -2 * ll.curr
+    
+    # d. save theta.k
+    samples[k,] <- theta.k
+    
+    # e. update adaptive structures
+    
+    if (k %% update > 0){
+      # add theta.k to sample matrix
+      update.samples[k %% update, ] <- theta.k
+    } else {
+      # add theta.k to sample matrix
+      update.samples[update, ] <- theta.k
+      
+      # update constants
+      gamma1 <- 1 / time^c1; gamma2 <- c0 * gamma1
+      
+      ### update gamma adaptive structure
+      s.hat <- var(update.samples[,1])
+      r.hat <- ad.gamma$n.jumps / update
+      log.var <- log(ad.gamma$var) + gamma2 * (r.hat - r.opt)
+      ad.gamma$var <- exp(log.var)
+      ad.gamma$s0 <- ad.gamma$s0 +
+        gamma1 * (s.hat - ad.gamma$s0)
+      ad.gamma$n.jumps <- 0
+      ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+      
+      ### update xi adaptive structure
+      s.hat <- var(update.samples[,2])
+      r.hat <- ad.xi$n.jumps / update
+      log.var <- log(ad.xi$var) + gamma2 * (r.hat - r.opt)
+      ad.xi$var <- exp(log.var)
+      ad.xi$s0 <- ad.xi$s0 +
+        gamma1 * (s.hat - ad.xi$s0)
+      ad.xi$n.jumps <- 0
+      ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+      
+      ### update s2 adaptive structure
+      s.hat <- var(update.samples[,4])
+      r.hat <- ad.s2$n.jumps / update
+      log.var <- log(ad.s2$var) + gamma2 * (r.hat - r.opt)
+      ad.s2$var <- exp(log.var)
+      ad.s2$s0 <- ad.s2$s0 +
+        gamma1 * (s.hat - ad.s2$s0)
+      ad.s2$n.jumps <- 0
+      ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+      
+      ### update alpha adaptive structure
+      s.hat <- var(update.samples[,6])
+      r.hat <- ad.alpha$n.jumps / update
+      log.var <- log(ad.alpha$var) + gamma2 * (r.hat - r.opt)
+      ad.alpha$var <- exp(log.var)
+      ad.alpha$s0 <- ad.alpha$s0 +
+        gamma1 * (s.hat - ad.alpha$s0)
+      ad.alpha$n.jumps <- 0
+      ad.alpha$sd <- sqrt(ad.alpha$var * ad.alpha$s0)
+      
+      # update number of adaptive steps
+      time <- time + 1
+    }
+    
+    
+    # f. print out the current iteration
+    if (iter > 0){
+      if (k %% iter == 0){
+        print(paste("iteration:", k))
+      }
+    }
+  }
+  
+  # save adaptive structures
+  ad.str <- list(gamma = ad.gamma,
+                 xi = ad.xi,
+                 alpha = ad.alpha,
+                 s2 = ad.s2)
+  
+  # return samples
+  results <- list(samples = samples, dic = dic.vec, ad.str = ad.str)
+  return(results)
+}
+
+simCoupled.Wind <- function(theta, mats, X){
+  # Simulate coupled time-averaged model given samples from posterior 
+  #   (WITH WIND!).
+  # Input:
+  #   theta: model parameters
+  #   mats: matrix structures used in model
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Simulated SO4 surface (as vector).
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  alpha <- theta[6]
+  
+  D <- mats$D
+  C <- mats$C
+  
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + (alpha / xi) * C + Diagonal(n.cells, 1)
+  
+  
+  sources <- solve(A.2, X * beta)
+  mu <- solve(A.1, sources)
+  
+  Q <- t(A.1) %*% A.1 / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+### C. snapshot model, coupled SO2-SO4, no wind
+
+ll.data.snap <- function(theta, y, X, mats){
+  # Calculate the log-likelihood given sampled parameters for coupled 
+  #   SO2-SO4 snapshot model (no wind).
+  # Input:
+  #   theta: sampled parameters
+  #   y: observed data
+  #   X: vector of SOZ emissions
+  #   mats: matrix operators representing diffusion, advection, etc.
+  # Output:
+  #   Log-likelihood of the snapshot, coupled SO2-SO4 model, no wind.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  
+  # create matrices
+  D <- mats$D
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + Diagonal(n.cells, 1)
+  
+  # constanst for log-likelihood calc.
+  A1.y <- A.1 %*% y
+  sources <- solve(A.2, X * beta)
+  sources.cp <- t(sources) %*% solve(A.1, sources)
+  log.det.A1 <- as.numeric(determinant(A.1)$modulus)
+  
+  # log-likelihood
+  ll <- (n.cells * log(2) / 2) - (n.cells * log(s2) / 2) + (log.det.A1 / 2) -
+    1 / s2 * (t(y) %*% A1.y  - 2 * t(y) %*% sources + sources.cp)
+  
+  # return ll
+  return(as.numeric(ll))
+}
+
+coupledMCMC.snap <- function(N, y, X, mats, params, priors, update, iter){
+  # MCMC sampler for the coupled SO2-SO4 snapshot model (no wind).
+  # Input:
+  #   N: number of MCMC samples.
+  #   y: observed data.
+  #   X: vector of SO2 outputs.
+  #   mats: matrix operators approximating physical processes.
+  #   params: vector of initial parameters.
+  #   priors: hyperparameters for prior distribution.
+  #   update: number of iterations at which to update MCMC proposal dist
+  #     (uses Shaby and Wells (2009) algorithm).
+  #   iter: when to print out iterations.
+  # Output:
+  #   List with MCMC samples, DIC calc, and adaptive structures used in MCMC 
+  # proposals.
+  
+  n.cells <- length(y)
+  
+  # initial parameter values
+  gamma.k <- params$gamma
+  xi.k <- params$xi
+  beta.k <- params$beta
+  s2.k <- params$s2
+  delta.k <- params$delta
+  
+  # all parameters in a vector
+  theta.k <- c(gamma.k, xi.k, beta.k, s2.k, delta.k)
+  
+  # matrix to hold parameters
+  samples <- matrix(NA_real_, nrow = N, ncol = length(theta.k))
+  colnames(samples) <- c("gamma", "xi", "beta", "s2", "delta")
+  
+  # vector to hold correction factor samples for DIC calculation
+  dic.vec <- rep(NA_real_, length = N)
+  
+  # calculate log-likelihood for current values
+  ll.curr <- ll.data.snap(theta.k, y, X, mats)
+  
+  ### create adaptive structures
+  
+  # matrix to hold samples
+  update.samples <- matrix(NA_real_, nrow = update, ncol = length(theta.k))
+  
+  # default constants
+  c0 <- 1; c1 <- 0.8; r.opt <- 0.234; time <- 1
+  
+  # structure for gamma
+  ad.gamma <- list()
+  ad.gamma$s0 <- 1
+  ad.gamma$var <- 10
+  ad.gamma$n.jumps <- 0
+  ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+  
+  # structure for xi
+  ad.xi <- list()
+  ad.xi$s0 <- 1
+  ad.xi$var <- 1
+  ad.xi$n.jumps <- 0
+  ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+  
+  # structure for s2
+  ad.s2 <- list()
+  ad.s2$s0 <- 1
+  ad.s2$var <- 1
+  ad.s2$n.jumps <- 0
+  ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+  
+  ### generate mcmc samples
+  for (k in 1:N){
+    
+    # a. sample gamma
+    gamma.star <- rnorm(n = 1, mean = gamma.k, sd = ad.gamma$sd)
+    
+    if (gamma.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[1] <- gamma.star
+      ll.star <- ll.data.snap(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(gamma.star, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(gamma.k, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new gamma
+        gamma.k <- gamma.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.gamma$n.jumps <- ad.gamma$n.jumps + 1
+      }
+    }
+    
+    # b. sample xi
+    xi.star <- rnorm(n = 1, mean = xi.k, sd = ad.xi$sd)
+    
+    if (xi.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[2] <- xi.star
+      ll.star <- ll.data.snap(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(xi.star, rate = priors$xi, log = TRUE)
+      mh.denom <- ll.curr + dexp(xi.k, rate = priors$xi, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new xi
+        xi.k <- xi.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.xi$n.jumps <- ad.xi$n.jumps + 1
+      }
+    }
+    
+    # c. sample s2
+    s2.star <- rnorm(n = 1, mean = s2.k, sd = ad.s2$sd)
+    
+    if (s2.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[4] <- s2.star
+      ll.star <- ll.data.snap(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(s2.star, rate = priors$s2, log = TRUE)
+      mh.denom <- ll.curr + dexp(s2.k, rate = priors$s2, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new s2
+        s2.k <- s2.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.s2$n.jumps <- ad.s2$n.jumps + 1
+      }
+    }
+    
+    # d. sample beta
+    
+    D <- mats$D
+    n.cells <- nrow(D)
+    A.1 <- gamma.k * D + Diagonal(n.cells, delta.k)
+    A.2 <- (gamma.k / xi.k) * D + Diagonal(n.cells, 1)
+    A2inv.X <- solve(A.2, X)
+    
+    beta.var <- 1 / (2 * as.numeric((t(A2inv.X) %*% solve(A.1, A2inv.X) / s2.k)) +
+                       (1 / priors$beta))
+    beta.mean <- beta.var * 2 * as.numeric(t(A2inv.X) %*% y) / s2.k
+    
+    beta.k <- rnorm(n = 1, mean = beta.mean, sd = sqrt(beta.var))
+    
+    # calculate new likelihood
+    theta.k[3] <- beta.k
+    ll.curr <- ll.data.snap(theta.k, y, X, mats)
+    
+    # save ll for DIC calc
+    dic.vec[k] <- -2 * ll.curr
+    
+    # d. save theta.k
+    samples[k,] <- theta.k
+    
+    # e. update adaptive structures
+    
+    if (k %% update > 0){
+      # add theta.k to sample matrix
+      update.samples[k %% update, ] <- theta.k
+    } else {
+      # add theta.k to sample matrix
+      update.samples[update, ] <- theta.k
+      
+      # update constants
+      gamma1 <- 1 / time^c1; gamma2 <- c0 * gamma1
+      
+      ### update gamma adaptive structure
+      s.hat <- var(update.samples[,1]) + 0.00001
+      r.hat <- ad.gamma$n.jumps / update
+      log.var <- log(ad.gamma$var) + gamma2 * (r.hat - r.opt)
+      ad.gamma$var <- exp(log.var)
+      ad.gamma$s0 <- ad.gamma$s0 +
+        gamma1 * (s.hat - ad.gamma$s0)
+      ad.gamma$n.jumps <- 0
+      ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+      
+      ### update xi adaptive structure
+      s.hat <- var(update.samples[,2]) + 0.00001
+      r.hat <- ad.xi$n.jumps / update
+      log.var <- log(ad.xi$var) + gamma2 * (r.hat - r.opt)
+      ad.xi$var <- exp(log.var)
+      ad.xi$s0 <- ad.xi$s0 +
+        gamma1 * (s.hat - ad.xi$s0)
+      ad.xi$n.jumps <- 0
+      ad.xi$sd <- sqrt(ad.xi$var * ad.xi$s0)
+      
+      ### update s2 adaptive structure
+      s.hat <- var(update.samples[,4]) + 0.00001
+      r.hat <- ad.s2$n.jumps / update
+      log.var <- log(ad.s2$var) + gamma2 * (r.hat - r.opt)
+      ad.s2$var <- exp(log.var)
+      ad.s2$s0 <- ad.s2$s0 +
+        gamma1 * (s.hat - ad.s2$s0)
+      ad.s2$n.jumps <- 0
+      ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+      
+      # update number of adaptive steps
+      time <- time + 1
+    }
+    
+    
+    # f. print out the current iteration
+    if (iter > 0){
+      if (k %% iter == 0){
+        print(paste("iteration:", k))
+      }
+    }
+  }
+  
+  
+  # save adaptive structures
+  ad.str <- list(gamma = ad.gamma,
+                 xi = ad.xi,
+                 s2 = ad.s2)
+  
+  # return samples
+  results <- list(samples = samples, dic = dic.vec, ad.str = ad.str)
+  
+  # return samples
+  return(results)
+}
+
+simCoupled.snap <- function(theta, mats, X){
+  # Simulate coupled snapshot model given samples from posterior (no wind).
+  # Input:
+  #   theta: model parameters
+  #   mats: matrix structures used in model
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Simulated SO4 surface (as vector).
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  
+  D <- mats$D
+  
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + Diagonal(n.cells, 1)
+  
+  
+  sources <- solve(A.2, X * beta)
+  mu <- solve(A.1, sources)
+  
+  Q <- 2 * A.1 / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+### E. time averaged, uncoupled SO4 model, with wind
+
+ll.data.uncoupled.W <- function(theta, y, X, mats){
+  # Calculate the log-likelihood given sampled parameters for uncoupled 
+  #   SO2-SO4 time-averaged model (WITH WIND!).
+  # Input:
+  #   theta: sampled parameters
+  #   y: observed data
+  #   X: vector of SOZ emissions
+  #   mats: matrix operators representing diffusion, advection, etc.
+  # Output:
+  #   Log-likelihood of the time-averaged, uncoupled SO2-SO4 model, with wind.
+  
+  # grab parameters
+  gamma <- theta[1]
+  beta <- theta[2]
+  s2 <- theta[3]
+  delta <- theta[4]
+  alpha <- theta[5]
+  
+  # create matrices
+  D <- mats$D
+  C <- mats$C
+  n.cells <- nrow(D)
+  A <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  
+  # constanst for log-likelihood calc.
+  A.y <- A %*% y
+  X.b <- X * beta
+  
+  like.1 <- A.y - X.b
+  cp.like <- t(like.1) %*% like.1
+  log.det.A <- as.numeric(determinant(A)$modulus)
+  
+  # log-likelihood
+  ll <- (-n.cells * log(s2) / 2) + log.det.A -
+    1 / 2 / s2 * (cp.like)
+  
+  # return ll
+  return(as.numeric(ll))
+}
+
+uncoupledMCMC.W <- function(N, y, X, mats, params, priors, update, iter){
+  # MCMC sampler for the uncoupled SO2-SO4 time-averaged model (with wind).
+  # Input:
+  #   N: number of MCMC samples.
+  #   y: observed data.
+  #   X: vector of SO2 outputs.
+  #   mats: matrix operators approximating physical processes.
+  #   params: vector of initial parameters.
+  #   priors: hyperparameters for prior distribution.
+  #   update: number of iterations at which to update MCMC proposal dist
+  #     (uses Shaby and Wells (2009) algorithm).
+  #   iter: when to print out iterations.
+  # Output:
+  #   List with MCMC samples, DIC calc, and adaptive structures used in MCMC 
+  # proposals.
+  
+  n.cells <- length(y)
+  
+  # initial parameter values
+  gamma.k <- params$gamma
+  beta.k <- params$beta
+  s2.k <- params$s2
+  delta.k <- params$delta
+  alpha.k <- params$alpha
+  
+  # all parameters in a vector
+  theta.k <- c(gamma.k, beta.k, s2.k, delta.k, alpha.k)
+  
+  # matrix to hold parameters
+  samples <- matrix(NA_real_, nrow = N, ncol = length(theta.k))
+  colnames(samples) <- c("gamma", "beta", "s2", "delta", "alpha")
+  
+  # vector to hold correction factor samples for DIC calculation
+  dic.vec <- rep(NA_real_, length = N)
+  
+  # calculate log-likelihood for current values
+  ll.curr <- ll.data.uncoupled.W(theta.k, y, X, mats)
+  
+  ### create adaptive structures
+  
+  # matrix to hold samples
+  update.samples <- matrix(NA_real_, nrow = update, ncol = length(theta.k))
+  
+  # default constants
+  c0 <- 1; c1 <- 0.8; r.opt <- 0.234; time <- 1
+  
+  # structure for gamma
+  ad.gamma <- list()
+  ad.gamma$s0 <- 1
+  ad.gamma$var <- 10
+  ad.gamma$n.jumps <- 0
+  ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+  
+  # structure for alpha
+  ad.alpha <- list()
+  ad.alpha$s0 <- 1
+  ad.alpha$var <- 1
+  ad.alpha$n.jumps <- 0
+  ad.alpha$sd <- sqrt(ad.alpha$var * ad.alpha$s0)
+  
+  # structure for s2
+  ad.s2 <- list()
+  ad.s2$s0 <- 1
+  ad.s2$var <- 10
+  ad.s2$n.jumps <- 0
+  ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+  
+  ### generate mcmc samples
+  for (k in 1:N){
+    
+    # a. sample gamma
+    gamma.star <- rnorm(n = 1, mean = gamma.k, sd = ad.gamma$sd)
+    
+    if (gamma.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[1] <- gamma.star
+      ll.star <- ll.data.uncoupled.W(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(gamma.star, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(gamma.k, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new gamma
+        gamma.k <- gamma.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.gamma$n.jumps <- ad.gamma$n.jumps + 1
+      }
+    }
+    
+    # b. sample alpha
+    alpha.star <- rnorm(n = 1, mean = alpha.k, sd = ad.alpha$sd)
+    
+    if (alpha.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[5] <- alpha.star
+      ll.star <- ll.data.uncoupled.W(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(alpha.star, mean = 0, sd = priors$alpha.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(alpha.k, mean = 0, sd = priors$alpha.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new alpha
+        alpha.k <- alpha.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.alpha$n.jumps <- ad.alpha$n.jumps + 1
+      }
+    }
+    
+    # c. sample s2
+    s2.star <- rnorm(n = 1, mean = s2.k, sd = ad.s2$sd)
+    
+    if (s2.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[3] <- s2.star
+      ll.star <- ll.data.uncoupled.W(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(s2.star, rate = priors$s2, log = TRUE)
+      mh.denom <- ll.curr + dexp(s2.k, rate = priors$s2, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new s2
+        s2.k <- s2.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.s2$n.jumps <- ad.s2$n.jumps + 1
+      }
+    }
+    
+    # d. sample beta
+    
+    D <- mats$D
+    C <- mats$C
+    n.cells <- nrow(D)
+    A <- gamma.k * D + alpha.k * C + Diagonal(n.cells, delta.k)
+    A.y <- A %*% y
+    
+    beta.var <- 1 / (as.numeric((t(X) %*% X / s2.k)) + (1 / priors$beta))
+    beta.mean <- beta.var * as.numeric(t(X) %*% A.y) / s2.k
+    
+    beta.k <- rnorm(n = 1, mean = beta.mean, sd = sqrt(beta.var))
+    
+    # calculate new likelihood
+    theta.k[2] <- beta.k
+    ll.curr <- ll.data.uncoupled.W(theta.k, y, X, mats)
+    
+    # save ll for DIC calc
+    dic.vec[k] <- -2 * ll.curr
+    
+    # d. save theta.k
+    samples[k,] <- theta.k
+    
+    # e. update adaptive structures
+    
+    if (k %% update > 0){
+      # add theta.k to sample matrix
+      update.samples[k %% update, ] <- theta.k
+    } else {
+      # add theta.k to sample matrix
+      update.samples[update, ] <- theta.k
+      
+      # update constants
+      gamma1 <- 1 / time^c1; gamma2 <- c0 * gamma1
+      
+      ### update gamma adaptive structure
+      s.hat <- var(update.samples[,1]) + 0.000001
+      r.hat <- ad.gamma$n.jumps / update
+      log.var <- log(ad.gamma$var) + gamma2 * (r.hat - r.opt)
+      ad.gamma$var <- exp(log.var)
+      ad.gamma$s0 <- ad.gamma$s0 +
+        gamma1 * (s.hat - ad.gamma$s0)
+      ad.gamma$n.jumps <- 0
+      ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+      
+      ### update alpha adaptive structure
+      s.hat <- var(update.samples[,5]) + 0.000001
+      r.hat <- ad.alpha$n.jumps / update
+      log.var <- log(ad.alpha$var) + gamma2 * (r.hat - r.opt)
+      ad.alpha$var <- exp(log.var)
+      ad.alpha$s0 <- ad.alpha$s0 +
+        gamma1 * (s.hat - ad.alpha$s0)
+      ad.alpha$n.jumps <- 0
+      ad.alpha$sd <- sqrt(ad.alpha$var * ad.alpha$s0)
+      
+      ### update s2 adaptive structure
+      s.hat <- var(update.samples[,3]) + 0.000001
+      r.hat <- ad.s2$n.jumps / update
+      log.var <- log(ad.s2$var) + gamma2 * (r.hat - r.opt)
+      ad.s2$var <- exp(log.var)
+      ad.s2$s0 <- ad.s2$s0 +
+        gamma1 * (s.hat - ad.s2$s0)
+      ad.s2$n.jumps <- 0
+      ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+      
+      # update number of adaptive steps
+      time <- time + 1
+    }
+    
+    
+    # f. print out the current iteration
+    if (iter > 0){
+      if (k %% iter == 0){
+        print(paste("iteration:", k))
+      }
+    }
+  }
+  
+  # save adaptive structures
+  ad.str <- list(gamma = ad.gamma,
+                 alpha = ad.alpha,
+                 s2 = ad.s2)
+  
+  # return samples
+  results <- list(samples = samples, dic = dic.vec, ad.str = ad.str)
+  
+  # return samples
+  return(results)
+}
+
+simUncoupled.W <- function(theta, mats, X){
+  # Simulate uncoupled time-averaged model given samples from posterior 
+  #   (with wind).
+  # Input:
+  #   theta: model parameters
+  #   mats: matrix structures used in model
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Simulated SO4 surface (as vector).
+  
+  # grab parameters
+  gamma <- theta[1]
+  beta <- theta[2]
+  s2 <- theta[3]
+  delta <- theta[4]
+  alpha <- theta[5]
+  
+  D <- mats$D
+  C <- mats$C
+  
+  n.cells <- nrow(D)
+  A <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  
+  mu <- solve(A, X * beta)
+  
+  Q <- (t(A) %*% A) / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+### F. snapshot, uncoupled SO4 model, no wind 
+
+ll.data.uncoupled.snap <- function(theta, y, X, mats){
+  # Calculate the log-likelihood given sampled parameters for uncoupled 
+  #   SO2-SO4 snapshot model (WITH WIND!).
+  # Input:
+  #   theta: sampled parameters
+  #   y: observed data
+  #   X: vector of SOZ emissions
+  #   mats: matrix operators representing diffusion, advection, etc.
+  # Output:
+  #   Log-likelihood of the snaphsot, uncoupled SO2-SO4 model, with wind.
+  
+  # grab parameters
+  gamma <- theta[1]
+  beta <- theta[2]
+  s2 <- theta[3]
+  delta <- theta[4]
+  
+  # create matrices
+  D <- mats$D
+  n.cells <- nrow(D)
+  A <- gamma * D +  Diagonal(n.cells, delta)
+  
+  # constanst for log-likelihood calc.
+  A.y <- A %*% y
+  X.b <- X * beta
+  log.det.A <- as.numeric(determinant(A)$modulus)
+  
+  # log-likelihood
+  ll <- (n.cells * log(2) / 2) - (n.cells * log(s2) / 2) + (log.det.A / 2) -
+    1 / s2 * (t(y) %*% A.y - 2 * t(y) %*% X.b + t(X.b) %*% solve(A, X.b))
+  
+  # return ll
+  return(as.numeric(ll))
+}
+
+uncoupledMCMC.snap <- function(N, y, X, mats, params, priors, update, iter){
+  # MCMC sampler for the uncoupled SO2-SO4 snapshot model (no wind).
+  # Input:
+  #   N: number of MCMC samples.
+  #   y: observed data.
+  #   X: vector of SO2 outputs.
+  #   mats: matrix operators approximating physical processes.
+  #   params: vector of initial parameters.
+  #   priors: hyperparameters for prior distribution.
+  #   update: number of iterations at which to update MCMC proposal dist
+  #     (uses Shaby and Wells (2009) algorithm).
+  #   iter: when to print out iterations.
+  # Output:
+  #   List with MCMC samples, DIC calc, and adaptive structures used in MCMC 
+  # proposals.
+  
+  n.cells <- length(y)
+  
+  # initial parameter values
+  gamma.k <- params$gamma
+  beta.k <- params$beta
+  s2.k <- params$s2
+  delta.k <- params$delta
+  
+  # all parameters in a vector
+  theta.k <- c(gamma.k, beta.k, s2.k, delta.k)
+  
+  # matrix to hold parameters
+  samples <- matrix(NA_real_, nrow = N, ncol = length(theta.k))
+  colnames(samples) <- c("gamma", "beta", "s2", "delta")
+  
+  # vector to hold correction factor samples for DIC calculation
+  dic.vec <- rep(NA_real_, length = N)
+  
+  # calculate log-likelihood for current values
+  ll.curr <- ll.data.uncoupled.snap(theta.k, y, X, mats)
+  
+  ### create adaptive structures
+  
+  # matrix to hold samples
+  update.samples <- matrix(NA_real_, nrow = update, ncol = length(theta.k))
+  
+  # default constants
+  c0 <- 1; c1 <- 0.8; r.opt <- 0.234; time <- 1
+  
+  # structure for gamma
+  ad.gamma <- list()
+  ad.gamma$s0 <- 1
+  ad.gamma$var <- 10
+  ad.gamma$n.jumps <- 0
+  ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+  
+  # structure for s2
+  ad.s2 <- list()
+  ad.s2$s0 <- 1
+  ad.s2$var <- 10
+  ad.s2$n.jumps <- 0
+  ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+  
+  ### generate mcmc samples
+  for (k in 1:N){
+    
+    # a. sample gamma
+    gamma.star <- rnorm(n = 1, mean = gamma.k, sd = ad.gamma$sd)
+    
+    if (gamma.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[1] <- gamma.star
+      ll.star <- ll.data.uncoupled.snap(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dnorm(gamma.star, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.denom <- ll.curr + dnorm(gamma.k, mean = 0, sd = priors$g.sd, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new gamma
+        gamma.k <- gamma.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.gamma$n.jumps <- ad.gamma$n.jumps + 1
+      }
+    }
+    
+    
+    
+    # c. sample s2
+    s2.star <- rnorm(n = 1, mean = s2.k, sd = ad.s2$sd)
+    
+    if (s2.star > 0){
+      
+      # calculate new log-likelihood
+      theta.star <- theta.k
+      theta.star[3] <- s2.star
+      ll.star <- ll.data.uncoupled.snap(theta.star, y, X, mats)
+      
+      # determine log-MH ratio
+      mh.num <- ll.star + dexp(s2.star, rate = priors$s2, log = TRUE)
+      mh.denom <- ll.curr + dexp(s2.k, rate = priors$s2, log = TRUE)
+      mh.ratio <- mh.num - mh.denom
+      
+      if (log(runif(1)) < mh.ratio){
+        # accept new s2
+        s2.k <- s2.star
+        theta.k <- theta.star
+        ll.curr <- ll.star
+        ad.s2$n.jumps <- ad.s2$n.jumps + 1
+      }
+    }
+    
+    # d. sample beta
+    
+    D <- mats$D
+    n.cells <- nrow(D)
+    A <- gamma.k * D + Diagonal(n.cells, delta.k)
+    A.y <- A %*% y
+    
+    beta.var <- 1 / (2 * as.numeric((t(X) %*% solve(A, X)) / s2.k) + (1 / priors$beta))
+    beta.mean <- beta.var * 2 * as.numeric(t(X) %*% y) / s2.k
+    
+    beta.k <- rnorm(n = 1, mean = beta.mean, sd = sqrt(beta.var))
+    
+    # calculate new likelihood
+    theta.k[2] <- beta.k
+    ll.curr <- ll.data.uncoupled.snap(theta.k, y, X, mats)
+    
+    # save ll for DIC calc
+    dic.vec[k] <- -2 * ll.curr
+    
+    # d. save theta.k
+    samples[k,] <- theta.k
+    
+    # e. update adaptive structures
+    
+    if (k %% update > 0){
+      # add theta.k to sample matrix
+      update.samples[k %% update, ] <- theta.k
+    } else {
+      # add theta.k to sample matrix
+      update.samples[update, ] <- theta.k
+      
+      # update constants
+      gamma1 <- 1 / time^c1; gamma2 <- c0 * gamma1
+      
+      ### update gamma adaptive structure
+      s.hat <- var(update.samples[,1]) + 0.000001
+      r.hat <- ad.gamma$n.jumps / update
+      log.var <- log(ad.gamma$var) + gamma2 * (r.hat - r.opt)
+      ad.gamma$var <- exp(log.var)
+      ad.gamma$s0 <- ad.gamma$s0 +
+        gamma1 * (s.hat - ad.gamma$s0)
+      ad.gamma$n.jumps <- 0
+      ad.gamma$sd <- sqrt(ad.gamma$var * ad.gamma$s0)
+      
+      ### update s2 adaptive structure
+      s.hat <- var(update.samples[,3]) + 0.000001
+      r.hat <- ad.s2$n.jumps / update
+      log.var <- log(ad.s2$var) + gamma2 * (r.hat - r.opt)
+      ad.s2$var <- exp(log.var)
+      ad.s2$s0 <- ad.s2$s0 +
+        gamma1 * (s.hat - ad.s2$s0)
+      ad.s2$n.jumps <- 0
+      ad.s2$sd <- sqrt(ad.s2$var * ad.s2$s0)
+      
+      # update number of adaptive steps
+      time <- time + 1
+    }
+    
+    
+    # f. print out the current iteration
+    if (iter > 0){
+      if (k %% iter == 0){
+        print(paste("iteration:", k))
+      }
+    }
+  }
+  
+  
+  # save adaptive structures
+  ad.str <- list(gamma = ad.gamma,
+                 s2 = ad.s2)
+  
+  # return samples
+  results <- list(samples = samples, dic = dic.vec, ad.str = ad.str)
+  
+  # return samples
+  return(results)
+}
+
+simUncoupled.snap <- function(theta, mats, X){
+  # Simulate uncoupled snapshot model given samples from posterior (no wind).
+  # Input:
+  #   theta: model parameters
+  #   mats: matrix structures used in model
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Simulated SO4 surface (as vector).
+  
+  # grab parameters
+  gamma <- theta[1]
+  beta <- theta[2]
+  s2 <- theta[3]
+  delta <- theta[4]
+  
+  D <- mats$D
+  
+  n.cells <- nrow(D)
+  A <- gamma * D + Diagonal(n.cells, delta)
+  
+  mu <- solve(A, X * beta)
+  
+  Q <- 2 * A / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+### G. Finite Volume Method Functions
+
+interpWind <- function(r.old, r.new, direction, with.bound = TRUE){
+  # Linear interpolation of wind velocity across surface boundaries.
+  # Input:
+  #   r.old: wind raster with larger spatial extent.
+  #   r.new: wind raster with smaller spatial extent.
+  #   direction: direction of wind (either "u" or "v").
+  #   with.bound: boolean determining if velocities should be saved on
+  #     the boundary.
+  # Output:
+  #   Matrix with interpolated matrix velocities.
+
+  # grab xy coordinates from rasters
+  xy.old <- coordinates(r.old)
+  xy.new <- coordinates(r.new)
+
+  # dimensions of rasters (n.rows by n.cols)
+  dim.old <- dim(r.old)[1:2]
+  dim.new <- dim(r.new)[1:2]
+
+  # cell indices for trimmed case
+  cell.inds <- cellFromXY(r.old, xy.new)
+
+  # indices for the top boundary
+  top.bound <- (cell.inds[1] - dim.old[2]) + (-1):(dim.new[2])
+
+  # cell indices with boundaries
+  all.bounds <- top.bound
+
+  for (k in 1:(dim.new[1] + 1)){
+    next.bound <- top.bound + (k * dim.old[2])
+    all.bounds <- c(all.bounds, next.bound)
+  }
+
+  # wind values for all points (including boundaries)
+  orig.vals <- values(r.old)[all.bounds]
+  # matrix of face value velocities
+  face.vals <- matrix(NA_real_, nrow = length(all.bounds), ncol = 2)
+
+  # new dimensions
+  n.rows <- dim.new[1] + 2
+  n.cols <- dim.new[2] + 2
+
+  if (direction == "u"){
+    ### west to east
+
+    # name columns appropriately
+    colnames(face.vals) <- c("west", "east")
+
+    for(i in 1:n.rows){
+      for(j in 1:n.cols){
+
+        # current indice
+        cur.ind <- (i - 1) * n.cols + j
+
+        if (j == 1){
+          # no west face velocity
+          west <- 0
+          east <- sum(orig.vals[cur.ind + 0:1]) / 2
+        } else if (j == n.cols){
+          # no east face velocity
+          west <-  sum(orig.vals[cur.ind + -1:0]) / 2
+          east <- 0
+        } else {
+          # interior point
+          west <- sum(orig.vals[cur.ind + -1:0]) / 2
+          east <- sum(orig.vals[cur.ind + 0:1]) / 2
+        }
+
+        # add values to boundary matrix
+        face.vals[cur.ind,] <- c(west, east)
+      }
+    }
+  } else if (direction == "v"){
+    # south to north
+    # name columns appropriately
+    colnames(face.vals) <- c("south", "north")
+
+    for(i in 1:n.rows){
+      for(j in 1:n.cols){
+
+        # current indice
+        cur.ind <- (i - 1) * n.cols + j
+
+        if (i == 1){
+          # no north face velocity
+          north <- 0
+          south <- (orig.vals[cur.ind] + orig.vals[cur.ind + n.cols]) / 2
+        } else if (i == n.rows){
+          # no south face velocity
+          north <-  (orig.vals[cur.ind] + orig.vals[cur.ind - n.cols]) / 2
+          south <- 0
+        } else {
+          # interior point
+          north <-  (orig.vals[cur.ind] + orig.vals[cur.ind - n.cols]) / 2
+          south <- (orig.vals[cur.ind] + orig.vals[cur.ind + n.cols]) / 2
+        }
+
+        # add values to boundary matrix
+        face.vals[cur.ind,] <- c(south, north)
+      }
+    }
+  }
+
+  if (with.bound){
+    # return face.vals as is
+    return(face.vals)
+
+  } else {
+    # remove boundary points from face.vals
+    bound.points <- c(1:n.cols,
+                      (1:(n.rows-2) * n.cols + 1),
+                      (2:(n.rows-1) * n.cols),
+                      ((n.rows-1) * n.cols + 1:n.cols))
+
+    return(face.vals[-bound.points,])
+  }
+}
+
+windConvFVM <- function(dims, velocity.faces, inds, bc, bound = FALSE){
+  # Create an advection matrix using the Finite Volume Method (FVM).
+  # Input:
+  #   dims: dimension of the raster
+  #   velocity.faces: interpolated velocities on grid edges (from interpWind)
+  #   inds: matrix indices of raster grid cells (from FVMinds).
+  #   bc: boundary condition
+  #   bound: not used?
+  # Output:
+  #   Sparse FVM matrix representation of advection due to wind.
+
+  ## rows and column totals
+  n.r <- dims[1]
+  n.c <- dims[2]
+
+  # total number of cells
+  n.cells <- n.r * n.c
+
+  if (bc == "insulated"){
+
+    ### i, j, and x values for interior points
+    n.interior <- nrow(inds$interior)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$interior[,1], 2] -
+      velocity.faces[inds$interior[,1], 1]
+    F.diff.ns <- velocity.faces[inds$interior[,1], 4] -
+      velocity.faces[inds$interior[,1], 3]
+    F.diff.comb <- F.diff.ew + F.diff.ns
+
+    a.w <- velocity.faces[inds$interior[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$interior[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$interior[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- -velocity.faces[inds$interior[,1], 4]; a.n[a.n < 0] <- 0
+
+    sparse.interior <- cbind(rep(inds$interior[,1], 5),
+                             as.vector(inds$interior),
+                             c(F.diff.comb + a.n + a.s + a.e + a.w, -a.n, -a.s, -a.e, -a.w))
+
+
+    ### i, j, and x values for west boundary points
+    n.west <- nrow(inds$west)
+
+    F.diff.ns <- velocity.faces[inds$west[,1], 4] -
+      velocity.faces[inds$west[,1], 3]
+    F.diff.comb <- F.diff.ns + velocity.faces[inds$west[,1], 2]
+
+    a.e <- -velocity.faces[inds$west[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$west[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- velocity.faces[inds$west[,1], 4]; a.n[a.n > 0] <- 0
+
+    sparse.west <- cbind(rep(inds$west[,1], 4),
+                         as.vector(inds$west[,-5]),
+                         c(F.diff.comb + a.n + a.s + a.e, -a.n, -a.s, -a.e))
+
+    ### i, j, and x values for east boundary points
+    n.east <- nrow(inds$east)
+
+    # coefficient calculations
+    F.diff.ns <- velocity.faces[inds$east[,1], 4] -
+      velocity.faces[inds$east[,1], 3]
+    F.diff.comb <- F.diff.ns - velocity.faces[inds$east[,1], 1]
+
+    a.w <- velocity.faces[inds$east[,1], 1]; a.w[a.w < 0] <- 0
+    a.s <- velocity.faces[inds$east[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- -velocity.faces[inds$east[,1], 4]; a.n[a.n < 0] <- 0
+
+    sparse.east <- cbind(rep(inds$east[,1], 4),
+                         as.vector(inds$east[,-4]),
+                         c(F.diff.comb + a.n + a.s + a.w, -a.n, -a.s, -a.w))
+
+    ### i, j, and x values for north boundary points
+    n.north <- nrow(inds$north)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$north[,1], 2] -
+      velocity.faces[inds$north[,1], 1]
+    F.diff.comb <- F.diff.ew - velocity.faces[inds$north[,1], 3]
+
+    a.w <- velocity.faces[inds$north[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$north[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$north[,1], 3]; a.s[a.s < 0] <- 0
+
+    sparse.north <- cbind(rep(inds$north[,1], 4),
+                          as.vector(inds$north[,-2]),
+                          c(F.diff.comb + a.s + a.e + a.w, -a.s, -a.e, -a.w))
+
+    ### i, j, and x values for south boundary points
+    n.south <- nrow(inds$south)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$south[,1], 2] -
+      velocity.faces[inds$south[,1], 1]
+    F.diff.comb <- F.diff.ew + velocity.faces[inds$south[,1], 4]
+
+    a.w <- velocity.faces[inds$south[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$south[,1], 2]; a.e[a.e < 0] <- 0
+    a.n <- -velocity.faces[inds$south[,1], 4]; a.n[a.n < 0] <- 0
+
+    sparse.south <- cbind(rep(inds$south[,1], 4),
+                          as.vector(inds$south[,-3]),
+                          c(F.diff.comb + a.n + a.e + a.w, -a.n, -a.e, -a.w))
+
+    ### i, j, and x values for corner points
+
+    # northwest values
+    nw.ae <- max(c(0, -velocity.faces[inds$corners[1,1], 2]))
+    nw.as <- max(c(0, velocity.faces[inds$corners[1,1], 3]))
+    nw.ap <- nw.ae + nw.as + velocity.faces[inds$corners[1,1], 2] -
+      velocity.faces[inds$corners[1,1], 3]
+
+    # northeast values
+    ne.aw <- max(c(0, velocity.faces[inds$corners[2,1], 1]))
+    ne.as <- max(c(0, velocity.faces[inds$corners[2,1], 3]))
+    ne.ap <- ne.aw + ne.as - velocity.faces[inds$corners[2,1], 1] -
+      velocity.faces[inds$corners[2,1], 3]
+
+    # southwest values
+    sw.ae <- max(c(0, -velocity.faces[inds$corners[3,1], 2]))
+    sw.an <- max(c(0, -velocity.faces[inds$corners[3,1], 4]))
+    sw.ap <- sw.ae + sw.an + velocity.faces[inds$corners[3,1], 2] +
+      velocity.faces[inds$corners[3,1], 4]
+
+    # southeast values
+    se.aw <- max(c(0, velocity.faces[inds$corners[4,1], 1]))
+    se.an <- max(c(0, -velocity.faces[inds$corners[4,1], 4]))
+    se.ap <- se.aw + se.an - velocity.faces[inds$corners[4,1], 1] +
+      velocity.faces[inds$corners[4,1], 4]
+
+    sparse.corner <- cbind(c(inds$corners[,1], inds$corners[3:4,1], inds$corners[1:2,1],
+                             inds$corners[c(1,3),1], inds$corners[c(2,4),1]),
+                           c(inds$corners[,1], inds$corners[3:4,2], inds$corners[1:2,3],
+                             inds$corners[c(1,3),4], inds$corners[c(2,4),5]),
+                           c(nw.ap, ne.ap, sw.ap, se.ap, -sw.an, -se.an, -nw.as,
+                             -ne.as, -nw.ae, -sw.ae, -ne.aw, -se.aw))
+
+    # combine i, j, and x matrices into single matrix
+    sparse.ijx <- rbind(sparse.interior,
+                        sparse.west,
+                        sparse.east,
+                        sparse.north,
+                        sparse.south,
+                        sparse.corner)
+
+    # quickly fill the sparse matrix
+    A.mat <- sparseMatrix(sparse.ijx[,1], sparse.ijx[,2], x = sparse.ijx[,3],
+                          dims = c(n.cells, n.cells))
+
+  } else if (bc == "endless world"){
+
+    ### i, j, and x values for interior points
+    n.interior <- nrow(inds$interior)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$interior[,1], 2] -
+      velocity.faces[inds$interior[,1], 1]
+    F.diff.ns <- velocity.faces[inds$interior[,1], 4] -
+      velocity.faces[inds$interior[,1], 3]
+    F.diff.comb <- F.diff.ew + F.diff.ns
+
+    a.w <- velocity.faces[inds$interior[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$interior[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$interior[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- -velocity.faces[inds$interior[,1], 4]; a.n[a.n < 0] <- 0
+
+    sparse.interior <- cbind(rep(inds$interior[,1], 5),
+                             as.vector(inds$interior),
+                             c(F.diff.comb + a.n + a.s + a.e + a.w, -a.n, -a.s, -a.e, -a.w))
+
+
+    ### i, j, and x values for west boundary points
+    n.west <- nrow(inds$west)
+
+    # coefficient values
+    F.diff.ns <- velocity.faces[inds$west[,1], 4] -
+      velocity.faces[inds$west[,1], 3]
+    F.diff.comb <- F.diff.ns + velocity.faces[inds$west[,1], 2]
+
+    a.e <- -velocity.faces[inds$west[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$west[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- velocity.faces[inds$west[,1], 4]; a.n[a.n > 0] <- 0
+
+    west.faces <- velocity.faces[inds$west[,1], 1]
+    diag.vals <- F.diff.comb + a.n + a.s + a.e
+    diag.vals[west.faces < 0] <- (diag.vals - west.faces)[west.faces < 0]
+
+    sparse.west <- cbind(rep(inds$west[,1], 4),
+                         as.vector(inds$west[,-5]),
+                         c(diag.vals, -a.n, -a.s, -a.e))
+
+    ### i, j, and x values for east boundary points
+    n.east <- nrow(inds$east)
+
+    # coefficient calculations
+    F.diff.ns <- velocity.faces[inds$east[,1], 4] -
+      velocity.faces[inds$east[,1], 3]
+    F.diff.comb <- F.diff.ns - velocity.faces[inds$east[,1], 1]
+
+    a.w <- velocity.faces[inds$east[,1], 1]; a.w[a.w < 0] <- 0
+    a.s <- velocity.faces[inds$east[,1], 3]; a.s[a.s < 0] <- 0
+    a.n <- -velocity.faces[inds$east[,1], 4]; a.n[a.n < 0] <- 0
+
+    # if east face value is positive, change diagonal value to include it leaving system
+    east.faces <- velocity.faces[inds$east[,1],2]
+    diag.vals <- F.diff.comb + a.n + a.s + a.w
+    diag.vals[east.faces > 0] <- (diag.vals + east.faces)[east.faces > 0]
+
+    sparse.east <- cbind(rep(inds$east[,1], 4),
+                         as.vector(inds$east[,-4]),
+                         c(diag.vals, -a.n, -a.s, -a.w))
+
+    ### i, j, and x values for north boundary points
+    n.north <- nrow(inds$north)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$north[,1], 2] -
+      velocity.faces[inds$north[,1], 1]
+    F.diff.comb <- F.diff.ew - velocity.faces[inds$north[,1], 3]
+
+    a.w <- velocity.faces[inds$north[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$north[,1], 2]; a.e[a.e < 0] <- 0
+    a.s <- velocity.faces[inds$north[,1], 3]; a.s[a.s < 0] <- 0
+
+    north.faces <- velocity.faces[inds$north[,1], 4]
+    diag.vals <- F.diff.comb + a.s + a.e + a.w
+    diag.vals[north.faces > 0] <- (diag.vals + north.faces)[north.faces > 0]
+
+    sparse.north <- cbind(rep(inds$north[,1], 4),
+                          as.vector(inds$north[,-2]),
+                          c(diag.vals, -a.s, -a.e, -a.w))
+
+    ### i, j, and x values for south boundary points
+    n.south <- nrow(inds$south)
+
+    # coefficient calculations
+    F.diff.ew <- velocity.faces[inds$south[,1], 2] -
+      velocity.faces[inds$south[,1], 1]
+    F.diff.comb <- F.diff.ew + velocity.faces[inds$south[,1], 4]
+
+    a.w <- velocity.faces[inds$south[,1], 1]; a.w[a.w < 0] <- 0
+    a.e <- -velocity.faces[inds$south[,1], 2]; a.e[a.e < 0] <- 0
+    a.n <- -velocity.faces[inds$south[,1], 4]; a.n[a.n < 0] <- 0
+
+    south.faces <- velocity.faces[inds$south[,1], 3]
+    diag.vals <- F.diff.comb + a.n + a.e + a.w
+    diag.vals[south.faces < 0] <- (diag.vals - south.faces)[south.faces < 0]
+
+    sparse.south <- cbind(rep(inds$south[,1], 4),
+                          as.vector(inds$south[,-3]),
+                          c(F.diff.comb + a.n + a.e + a.w, -a.n, -a.e, -a.w))
+
+    ### i, j, and x values for corner points
+
+    ## northwest values
+    nw.ae <- max(c(0, -velocity.faces[inds$corners[1,1], 2]))
+    nw.as <- max(c(0, velocity.faces[inds$corners[1,1], 3]))
+    nw.ap <- nw.ae + nw.as + velocity.faces[inds$corners[1,1], 2] -
+      velocity.faces[inds$corners[1,1], 3]
+
+    # north face
+    nw.nf <- velocity.faces[inds$corners[1,1], 4]
+    # west face
+    nw.wf <- velocity.faces[inds$corners[1,1], 1]
+
+    if (nw.nf > 0){
+      # add to diagonal
+      nw.ap <- nw.ap + nw.nf
+    }
+
+    if (nw.wf < 0){
+      # subtract from diagonal
+      nw.ap <- nw.ap - nw.wf
+    }
+
+    ## northeast values
+    ne.aw <- max(c(0, velocity.faces[inds$corners[2,1], 1]))
+    ne.as <- max(c(0, velocity.faces[inds$corners[2,1], 3]))
+    ne.ap <- ne.aw + ne.as - velocity.faces[inds$corners[2,1], 1] -
+      velocity.faces[inds$corners[2,1], 3]
+
+    # north face
+    ne.nf <- velocity.faces[inds$corners[2,1], 4]
+    # east face
+    ne.ef <- velocity.faces[inds$corners[2,1], 2]
+
+    if (ne.nf > 0){
+      ne.ap <- ne.ap + ne.nf
+    }
+
+    if (ne.ef > 0){
+      ne.ap <- ne.ap + ne.ef
+    }
+
+
+    ## southwest values
+    sw.ae <- max(c(0, -velocity.faces[inds$corners[3,1], 2]))
+    sw.an <- max(c(0, -velocity.faces[inds$corners[3,1], 4]))
+    sw.ap <- sw.ae + sw.an + velocity.faces[inds$corners[3,1], 2] +
+      velocity.faces[inds$corners[3,1], 4]
+
+    # south face
+    sw.sf <- velocity.faces[inds$corners[3,1],3]
+    # west face
+    sw.wf <- velocity.faces[inds$corners[3,1],1]
+
+    if (sw.sf < 0){
+      sw.ap <- sw.ap - sw.sf
+    }
+
+    if (sw.wf < 0){
+      sw.ap <- sw.ap - sw.wf
+    }
+
+
+    ## southeast values
+    se.aw <- max(c(0, velocity.faces[inds$corners[4,1], 1]))
+    se.an <- max(c(0, -velocity.faces[inds$corners[4,1], 4]))
+    se.ap <- se.aw + se.an - velocity.faces[inds$corners[4,1], 1] +
+      velocity.faces[inds$corners[4,1], 4]
+
+    # south face
+    se.sf <- velocity.faces[inds$corners[4,1], 3]
+    # east face
+    se.ef <- velocity.faces[inds$corners[4,1], 2]
+
+    if (se.sf < 0){
+      se.ap <- se.ap - se.sf
+    }
+
+    if (se.ef > 0){
+      se.ap <- se.ap + se.ef
+    }
+
+    # combine all values together
+    sparse.corner <- cbind(c(inds$corners[,1], inds$corners[3:4,1], inds$corners[1:2,1],
+                             inds$corners[c(1,3),1], inds$corners[c(2,4),1]),
+                           c(inds$corners[,1], inds$corners[3:4,2], inds$corners[1:2,3],
+                             inds$corners[c(1,3),4], inds$corners[c(2,4),5]),
+                           c(nw.ap, ne.ap, sw.ap, se.ap, -sw.an, -se.an, -nw.as,
+                             -ne.as, -nw.ae, -sw.ae, -ne.aw, -se.aw))
+
+    # combine i, j, and x matrices into single matrix
+    sparse.ijx <- rbind(sparse.interior,
+                        sparse.west,
+                        sparse.east,
+                        sparse.north,
+                        sparse.south,
+                        sparse.corner)
+
+    # quickly fill the sparse matrix
+    A.mat <- sparseMatrix(sparse.ijx[,1], sparse.ijx[,2], x = sparse.ijx[,3],
+                          dims = c(n.cells, n.cells))
+  }
+
+  return(A.mat)
+}
+
+diffFVM <- function(dims, inds, bound.cond){
+  # Create finite volume matrix approximation to homogeneous diffusion.
+  # Input:
+  #   dims: dimension of raster
+  #   inds: indices of interior/boundary points, created with FVMInds
+  #   bound.cond: boundary conditions (insulated or periodic)
+  # Output:
+  #   Sparse matrix used for discrete approximation of homogenous diffusion.
+  
+  # rows and column totals
+  n.r <- dims[1]
+  n.c <- dims[2]
+  
+  # total number of cells
+  n.cells <- n.r * n.c
+  
+  if (bound.cond == "insulated"){
+    
+    # i, j, and x values for interior points
+    n.interior <- nrow(inds$interior)
+    sparse.interior <- cbind(rep(inds$interior[,1], 5), 
+                             as.vector(inds$interior),
+                             c(rep(4, n.interior), rep(-1, n.interior * 4)))
+    
+    
+    # i, j, and x values for west boundary points
+    n.west <- nrow(inds$west)
+    sparse.west <- cbind(rep(inds$west[,1], 4),
+                         as.vector(inds$west),
+                         c(rep(3, n.west), rep(-1, n.west * 3)))
+    
+    # i, j, and x values for east boundary points
+    n.east <- nrow(inds$east)
+    sparse.east <- cbind(rep(inds$east[,1], 4),
+                         as.vector(inds$east),
+                         c(rep(3, n.east), rep(-1, n.east * 3)))
+    
+    # i, j, and x values for north boundary points
+    n.north <- nrow(inds$north)
+    sparse.north <- cbind(rep(inds$north[,1], 4),
+                          as.vector(inds$north),
+                          c(rep(3, n.north), rep(-1, n.north * 3)))
+    
+    # i, j, and x values for south boundary points
+    n.south <- nrow(inds$south)
+    sparse.south <- cbind(rep(inds$south[,1], 4),
+                          as.vector(inds$south),
+                          c(rep(3, n.south), rep(-1, n.south * 3)))
+    
+    # i, j, and x values for corner points
+    
+    sparse.corner <- cbind(c(inds$corners[,1], inds$corners[3:4,1], inds$corners[1:2,1],
+                             inds$corners[c(1,3),1], inds$corners[c(2,4),1]),
+                           c(inds$corners[,1], inds$corners[3:4,2], inds$corners[1:2,3],
+                             inds$corners[c(1,3),4], inds$corners[c(2,4),5]),
+                           c(rep(2, 4), rep(-1, 8)))
+    
+    # combine i, j, and x matrices into single matrix
+    sparse.ijx <- rbind(sparse.interior,
+                        sparse.west,
+                        sparse.east,
+                        sparse.north,
+                        sparse.south,
+                        sparse.corner)
+    
+    
+  } else if (bound.cond == "periodic"){
+    
+    # i, j, and x values for interior points
+    n.interior <- nrow(inds$interior)
+    sparse.interior <- cbind(rep(inds$interior[,1], 5), 
+                             as.vector(inds$interior),
+                             c(rep(4, n.interior), rep(-1, n.interior * 4)))
+    
+    
+    # i, j, and x values for west boundary points
+    n.west <- nrow(inds$west)
+    sparse.west <- cbind(rep(inds$west[,1], 5),
+                         as.vector(inds$west),
+                         c(rep(4, n.west), rep(-1, n.west * 4)))
+    
+    # i, j, and x values for east boundary points
+    n.east <- nrow(inds$east)
+    sparse.east <- cbind(rep(inds$east[,1], 5),
+                         as.vector(inds$east),
+                         c(rep(4, n.east), rep(-1, n.east * 4)))
+    
+    # i, j, and x values for north boundary points
+    n.north <- nrow(inds$north)
+    sparse.north <- cbind(rep(inds$north[,1], 5),
+                          as.vector(inds$north),
+                          c(rep(4, n.north), rep(-1, n.north * 4)))
+    
+    # i, j, and x values for south boundary points
+    n.south <- nrow(inds$south)
+    sparse.south <- cbind(rep(inds$south[,1], 5),
+                          as.vector(inds$south),
+                          c(rep(4, n.south), rep(-1, n.south * 4)))
+    
+    # i, j, and x values for corner points
+    sparse.corner <- cbind(rep(inds$corners[,1], 5),
+                           as.vector(inds$corners),
+                           c(rep(4, 4), rep(-1, 4 * 4)))
+    
+    
+    # combine i, j, and x matrices into single matrix
+    sparse.ijx <- rbind(sparse.interior,
+                        sparse.west,
+                        sparse.east,
+                        sparse.north,
+                        sparse.south,
+                        sparse.corner)
+    
+  }
+  
+  # quickly fill the sparse matrix
+  D.mat <- sparseMatrix(sparse.ijx[,1], sparse.ijx[,2], x = sparse.ijx[,3],
+                        dims = c(n.cells, n.cells))
+  
+  # return the sparse diffusion matrix
+  return(D.mat)
+}
+
+FVMInds <- function(dims, bound.cond){
+  # Create list denoting index for interior and boundary of raster with given
+  #   spatial extent. This is used to create the FVM approximation of advection
+  #   due to wind.
+  # Input:
+  #   dims: dimension of raster
+  #   bound.cond: type of boundary condition (insulated or periodic).
+  # Output:
+  #   List with index of interior and boundary points.
+  
+  # rows and column totals
+  n.r <- dims[1]
+  n.c <- dims[2]
+  
+  #######################
+  ### interior points ###
+  #######################
+  interior <- matrix(NA_real_, nrow = (n.c - 2) * (n.r - 2), ncol = 5)
+  colnames(interior) <- c("P", "N", "S", "E", "W")
+  
+  if (bound.cond == "insulated"){
+    # create a diffusion matrix with insulated boundaries
+    
+    cur.ind <- 1
+    for (i in 2:(n.r-1)){
+      for (j in 2:(n.c - 1)){
+        
+        # index in original scheme
+        orig.ind <- (i - 1) * n.c + j
+        
+        # indices (with neighbors) for interior
+        interior[cur.ind, 1] <- orig.ind
+        interior[cur.ind, 2] <- orig.ind - n.c
+        interior[cur.ind, 3] <- orig.ind + n.c
+        interior[cur.ind, 4] <- orig.ind + 1
+        interior[cur.ind, 5] <- orig.ind - 1
+        
+        cur.ind <- cur.ind + 1
+      }
+    }
+    
+    ### west boundary points
+    west.bound <- matrix(NA_real_, nrow = (n.r - 2), ncol = 4)
+    colnames(west.bound) <- c("P", "N", "S", "E")
+    
+    cur.ind <- 1
+    for (i in 2:(n.r - 1)){
+      # index in original scheme
+      orig.ind <- (i - 1) * n.c + 1
+      # indices (with neighbors) for west boundary
+      west.bound[cur.ind, 1] <- orig.ind
+      west.bound[cur.ind, 2] <- orig.ind - n.c
+      west.bound[cur.ind, 3] <- orig.ind + n.c
+      west.bound[cur.ind, 4] <- orig.ind + 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ### east boundary
+    east.bound <- matrix(NA_real_, nrow = (n.r - 2), ncol = 4)
+    colnames(east.bound) <- c("P", "N", "S", "W")
+    
+    cur.ind <- 1
+    for (i in 2:(n.r-1)){
+      
+      # index in original scheme
+      orig.ind <- i * n.c
+      
+      # indices (with neighbors) for interior
+      east.bound[cur.ind, 1] <- orig.ind
+      east.bound[cur.ind, 2] <- orig.ind - n.c
+      east.bound[cur.ind, 3] <- orig.ind + n.c
+      east.bound[cur.ind, 4] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    
+    ### north boundary
+    north.bound <- matrix(NA_real_, nrow = (n.c - 2), ncol = 4)
+    colnames(north.bound) <- c("P", "S", "E", "W")
+    
+    cur.ind <- 1
+    for (j in 2:(n.c-1)){
+      
+      # index in original scheme
+      orig.ind <- j
+      
+      # indices (with neighbors) for interior
+      north.bound[cur.ind, 1] <- orig.ind
+      north.bound[cur.ind, 2] <- orig.ind + n.c
+      north.bound[cur.ind, 3] <- orig.ind + 1
+      north.bound[cur.ind, 4] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ### south boundary
+    south.bound <- matrix(NA_real_, nrow = (n.c - 2), ncol = 4)
+    colnames(south.bound) <- c("P", "N", "E", "W")
+    
+    cur.ind <- 1
+    for (j in 2:(n.c-1)){
+      
+      # index in original scheme
+      orig.ind <- j + n.c * (n.r - 1)
+      
+      # indices (with neighbors) for interior
+      south.bound[cur.ind, 1] <- orig.ind
+      south.bound[cur.ind, 2] <- orig.ind - n.c
+      south.bound[cur.ind, 3] <- orig.ind + 1
+      south.bound[cur.ind, 4] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ### corners
+    nw <- c(1, NA_real_, 1 + n.c, 2, NA_real_)
+    ne <- c(n.c, NA_real_, 2 * n.c, NA_real_, n.c - 1)
+    sw <- c((n.r - 1) * n.c + 1, (n.r - 2) * n.c + 1, NA_real_, (n.r - 1) * n.c + 2, NA_real_)
+    se <- c(n.r * n.c, (n.r - 1) * n.c, NA_real_, NA_real_, n.r * n.c - 1)
+    
+    corners <- rbind(nw, ne, sw, se)
+    colnames(corners) <- c("P", "N", "S", "E", "W")
+    
+  } else if (bound.cond == "periodic"){
+    
+    
+    # create a diffusion matrix with periodic boundaries
+    
+    cur.ind <- 1
+    for (i in 2:(n.r-1)){
+      for (j in 2:(n.c - 1)){
+        
+        # index in original scheme
+        orig.ind <- (i - 1) * n.c + j
+        
+        # indices (with neighbors) for interior
+        interior[cur.ind, 1] <- orig.ind
+        interior[cur.ind, 2] <- orig.ind - n.c
+        interior[cur.ind, 3] <- orig.ind + n.c
+        interior[cur.ind, 4] <- orig.ind + 1
+        interior[cur.ind, 5] <- orig.ind - 1
+        
+        cur.ind <- cur.ind + 1
+      }
+    }
+    
+    ############################
+    ### west boundary points ###
+    ############################
+    west.bound <- matrix(NA_real_, nrow = (n.r - 2), ncol = 5)
+    colnames(west.bound) <- c("P", "N", "S", "E", "W")
+    
+    cur.ind <- 1
+    for (i in 2:(n.r - 1)){
+      # index in original scheme
+      orig.ind <- (i - 1) * n.c + 1
+      # indices (with neighbors) for west boundary
+      west.bound[cur.ind, 1] <- orig.ind
+      west.bound[cur.ind, 2] <- orig.ind - n.c
+      west.bound[cur.ind, 3] <- orig.ind + n.c
+      west.bound[cur.ind, 4] <- orig.ind + 1
+      west.bound[cur.ind, 5] <- orig.ind + (n.c - 1)
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    #####################
+    ### east boundary ###
+    #####################
+    east.bound <- matrix(NA_real_, nrow = (n.r - 2), ncol = 5)
+    colnames(east.bound) <- c("P", "N", "S", "E", "W")
+    
+    cur.ind <- 1
+    for (i in 2:(n.r-1)){
+      
+      # index in original scheme
+      orig.ind <- i * n.c
+      
+      # indices (with neighbors) for interior
+      east.bound[cur.ind, 1] <- orig.ind
+      east.bound[cur.ind, 2] <- orig.ind - n.c
+      east.bound[cur.ind, 3] <- orig.ind + n.c
+      east.bound[cur.ind, 4] <- orig.ind - (n.c - 1)
+      east.bound[cur.ind, 5] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ######################
+    ### north boundary ###
+    ######################
+    north.bound <- matrix(NA_real_, nrow = (n.c - 2), ncol = 5)
+    colnames(north.bound) <- c("P", "N", "S", "E", "W")
+    
+    cur.ind <- 1
+    for (j in 2:(n.c-1)){
+      
+      # index in original scheme
+      orig.ind <- j
+      
+      # indices (with neighbors) for interior
+      north.bound[cur.ind, 1] <- orig.ind
+      north.bound[cur.ind, 2] <- orig.ind + (n.r - 1) * n.c
+      north.bound[cur.ind, 3] <- orig.ind + n.c
+      north.bound[cur.ind, 4] <- orig.ind + 1
+      north.bound[cur.ind, 5] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ######################
+    ### south boundary ###
+    ######################
+    south.bound <- matrix(NA_real_, nrow = (n.c - 2), ncol = 5)
+    colnames(south.bound) <- c("P", "N", "S", "E", "W")
+    
+    cur.ind <- 1
+    for (j in 2:(n.c-1)){
+      
+      # index in original scheme
+      orig.ind <- j + n.c * (n.r - 1)
+      
+      # indices (with neighbors) for interior
+      south.bound[cur.ind, 1] <- orig.ind
+      south.bound[cur.ind, 2] <- orig.ind - n.c
+      south.bound[cur.ind, 3] <- orig.ind - (n.r - 1) * n.c
+      south.bound[cur.ind, 4] <- orig.ind + 1
+      south.bound[cur.ind, 5] <- orig.ind - 1
+      
+      cur.ind <- cur.ind + 1
+    }
+    
+    ###############
+    ### corners ###
+    ###############
+    nw <- c(1, 1 + (n.r - 1) * n.c, 1 + n.c, 2, n.c)
+    ne <- c(n.c, n.c * n.r, 2 * n.c, 1, n.c - 1)
+    sw <- c((n.r - 1) * n.c + 1, (n.r - 2) * n.c + 1, 1, (n.r - 1) * n.c + 2, n.r * n.c)
+    se <- c(n.r * n.c, (n.r - 1) * n.c, n.c, 1 + (n.r - 1) * n.c, n.r * n.c - 1)
+    
+    corners <- rbind(nw, ne, sw, se)
+    colnames(corners) <- c("P", "N", "S", "E", "W")
+    
+    
+  }
+  
+  # combine all indice matrices into a single list
+  indices <- list(interior = interior,
+                  north = north.bound,
+                  south = south.bound,
+                  east = east.bound,
+                  west = west.bound,
+                  corners = corners)
+  
+  # return indices
+  return(indices)
+}
+
+createC <- function(big, small, dims, inds, bound.cond = "endless world"){
+  # Create matrix fo discretized advection process, due to wind.
+  # Input:
+  #   big: raster with wind data, large spatial extent
+  #   small: raster with wind data, small spatial extent
+  #   dims: dimension of the raster
+  #   inds: list of indices, created with FVMInds
+  #   bound.cond: boundary condition (periodic or endless world)
+  # Output:
+  #   Sparse matrix representing advection due to wind, as specified by 
+  #     wind velocities found in 'small'.
+  
+  big.uwind <- big$uwind
+  big.vwind <- big$vwind
+  
+  small.uwind <- small$uwind
+  small.vwind <- small$vwind
+  
+  u.faces <- interpWind(big.uwind, small.uwind, "u", with.bound = FALSE)
+  v.faces <- interpWind(big.vwind, small.vwind, "v", with.bound = FALSE)
+  velocity <- cbind(u.faces, v.faces)
+  
+  # wind vmatrix
+  C <- windConvFVM(dims, velocity, inds, bc = bound.cond, bound = FALSE)
+  return(C)
+}
+
+################################################################################
+### 3. Functions used to compile results.
+################################################################################
+
+dic.calc <- function(y, X, burnin, samples, dic.vec, mats, model){
+  # Calculate DIC using posterior output for a given type of model.
+  # Input:
+  #   y: response
+  #   X: covariates
+  #   burnin: burnin level
+  #   samples: samples (from mcmc output)
+  #   div.vec: vector of likelihood values (from mcmc output)
+  #   mats: list of FVM matrices
+  #   model: which likelihood to use ("avg2", "avg1", "snap2", "snap1")
+  # Output:
+  #   DIC for given posterior samples.
+  
+  D.bar <- mean(dic.vec[-burnin])
+  theta.hat <- colMeans(samples[-burnin,])
+  
+  if (model == "avg2"){
+    D.hat <- -2 * ll.data.Wind(theta.hat, y, X, mats)
+  } else if (model == "avg1"){
+    D.hat <- -2 * ll.data.uncoupled.W(theta.hat, y, X, mats)
+  } else if (model == "snap2"){
+    D.hat <- -2 * ll.data.snap(theta.hat, y, X, mats)
+  } else {
+    D.hat <- -2 * ll.data.uncoupled.snap(theta.hat, y, X, mats)
+  }
+  
+  DIC <- (2 * D.bar) - D.hat
+  return(DIC)
+}
+
+fittedMeanSO4Surface <- function(theta, mats, X){
+  # Estimate the expected annual SO4 concentration, using parameter estimates
+  #   fit to the coupled, time-averaged model.
+  # Input:
+  #   theta: parameter values
+  #   mats: list of FVM matrices
+  #   X: vector of SO2 emissions
+  # Output:
+  #   Vector of estimated SO4 concentrations.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  alpha <- theta[6]
+  
+  D <- mats$D
+  C <- mats$C
+  
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + (alpha / xi) * C + Diagonal(n.cells, 1)
+  
+  
+  sources <- solve(A.2, X * beta)
+  mu <- solve(A.1, sources)
+  return(as.vector(mu))
+}
+
+simCoupled.Wind <- function(theta, mats, X){
+  # Simulate from the time-averaged, coupled model, using given parameter and 
+  #   X values.
+  # Input:
+  #   theta: model parameters
+  #   mats: list of FVM matrices
+  #   X: vector of SO2 emissions
+  # Output:
+  #   A single realization of annual SO4 concentrations simulated from the 
+  #     time-averaged, coupled model.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  alpha <- theta[6]
+  
+  D <- mats$D
+  C <- mats$C
+  
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + (alpha / xi) * C + Diagonal(n.cells, 1)
+  
+  
+  sources <- solve(A.2, X * beta)
+  mu <- solve(A.1, sources)
+  
+  Q <- t(A.1) %*% A.1 / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+simUncoupled.W <- function(theta, mats, X){
+  # Simulate from the time-averaged, uncoupled model, using given parameter and 
+  #   X values.
+  # Input:
+  #   theta: model parameters
+  #   mats: list of FVM matrices
+  #   X: vector of SO2 emissions
+  # Output:
+  #   A single realization of annual SO4 concentrations simulated from the 
+  #     time-averaged, uncoupled model.
+  
+  # grab parameters
+  gamma <- theta[1]
+  beta <- theta[2]
+  s2 <- theta[3]
+  delta <- theta[4]
+  alpha <- theta[5]
+  
+  D <- mats$D
+  C <- mats$C
+  
+  n.cells <- nrow(D)
+  A <- gamma * D + alpha * C + Diagonal(n.cells, delta)
+  
+  mu <- solve(A, X * beta)
+  
+  Q <- (t(A) %*% A) / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+simCoupled.snap <- function(theta, mats, X){
+  # Simulate from the snapshot, coupled model, using given parameter and 
+  #   X values.
+  # Input:
+  #   theta: model parameters
+  #   mats: list of FVM matrices
+  #   X: vector of SO2 emissions
+  # Output:
+  #   A single realization of annual SO4 concentrations simulated from the 
+  #     snapshot, coupled model.
+  
+  # grab parameters
+  gamma <- theta[1]
+  xi <- theta[2]
+  beta <- theta[3]
+  s2 <- theta[4]
+  delta <- theta[5]
+  
+  D <- mats$D
+  
+  n.cells <- nrow(D)
+  A.1 <- gamma * D + Diagonal(n.cells, delta)
+  A.2 <- (gamma / xi) * D + Diagonal(n.cells, 1)
+  
+  
+  sources <- solve(A.2, X * beta)
+  mu <- solve(A.1, sources)
+  
+  Q <- 2 * A.1 / s2
+  
+  sample <- rnorm.Q(Q, mu, zero.constraint = FALSE, canon = FALSE)
+  
+  return(as.vector(sample))
+}
+
+expCalc <- function(N, X.orig, X.new, samples, burnin, mats.exp, pop.r){
+  # Calculate population-normalized exposure to SO4 pollution using draws from
+  #   posterior likelihood.
+  # Input:
+  #   N: number of posterior draws/simulations
+  #   X.orig: vector of original SO2 emissions levels
+  #   X.new: vector of hypothetical SO2 emissions after scrubber
+  #   samples: list of posterior samples, from mcmc output
+  #   burnin: size of burnin
+  #   mats.exp: FVM matrices used in discretization
+  #   pop.r: raster of population density
+  # Output:
+  #   
+  
+  # sample indices
+  s.inds <- sample.int(nrow(samples), size = N, replace = FALSE)
+  
+  log.pop.vec <- log(values(pop.r))
+  norm.pop <- exp(log.pop.vec - logSumExp(log.pop.vec))
+  
+  exposure <- matrix(NA_real_, nrow = N, ncol = 11)
+  
+  for (k in 1:N){
+    
+    # sample theta
+    theta.k <- samples[s.inds[k],]
+    
+    # exposure in original system
+    orig.sim <- simCoupled.Wind(theta = theta.k, mats = mats.exp, X = X.orig)
+    exposure[,1] <- sum(orig.sim * norm.pop)
+    
+    for (j in 1:10){
+      new.sim <- simCoupled.Wind(theta = theta.k, mats = mats.exp, X = X.new[,j])
+      exposure[k,1 + j] <- sum(new.sim * norm.pop)
+    }
+  }
+  
+  return(exposure)
+}
+
