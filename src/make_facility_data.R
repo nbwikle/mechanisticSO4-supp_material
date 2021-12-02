@@ -6,7 +6,8 @@
 ###   facilities in the United States.
 
 ### read in monthly emissions data (merged with other stuff)
-dat <- fread("./data/AMPD_Unit_with_Sulfur_Content_and_Regulations_with_Facility_Attributes.csv")
+dat <- fread(here::here("data", "AMPD_Unit_with_Sulfur_Content_and_Regulations_with_Facility_Attributes.csv"))
+
 
 ###########################
 ###   UNIT-LEVEL DATA   ###
@@ -21,14 +22,16 @@ dat$Month = as.numeric(dat$Month)
 dat[, year_month := paste(Year, Month, sep="_")]
 setkeyv(dat, c("uID", "Year", "Month"))
 setorderv(dat, c("uID", "Year", "Month"))
-dat <- unique(dat)
+dat <- dat[,-1]  # remove unique row identifiers
+dat <- unique(dat) # remove duplicate entries
+dat <- dat[!duplicated(dat[,17:20]),]
 
 # create region variable
 dat$Region <- region(dat$FIPS)
 
 # Might want to restrict to only certain types of Units.
 #   E.g., restrict to Coal-fired units only.
-dat_unit <- subset(dat, Fuel.Type..Primary..x == 'Coal') ## unit level, monthly
+dat_unit <- base::subset(dat, Fuel.Type..Primary..x == 'Coal') ## unit level, monthly
 setkeyv(dat_unit, c("uID", "Year", "Month"))
 
 # Define SO2 control strategies at the Unit Level.
@@ -37,7 +40,6 @@ dat_unit$AnySO2control <- FALSE
 dat_unit$AnySO2control <- (apply(dat_unit[, c("DryLimeFGD", "DrySorbInj",
   "DualAlk", "MagOx", "SodiumBased", "WetLimeFGD", "WetLime", "OtherSO2",
   "FluidizedBed"), with=FALSE], 1, sum) >=1)
-# with(dat_unit, mean(AnySO2control))
 
 # Define NOx control strategies at the Unit Level.
 dat_unit <- NOxcontroltechnologies(dat_unit)
@@ -45,12 +47,10 @@ dat_unit$NumNOxControls <- 0
 dat_unit$NumNOxControls <- apply(dat_unit[, c("SCR", "SNCR", "LowNOxBurner",
   "OverFire", "Ammonia", "CombustMod", "WaterInj", "OtherNOx"), with = FALSE],
   1, sum, na.rm = TRUE)
-# with(dat_unit, table(NumNOxControls))
 
 ## Group SCR and SnCR as one category
 dat_unit$S_n_CR <- apply(dat_unit[, c("SCR", "SNCR"), with = FALSE],
                          1, any, na.rm = TRUE)
-# with(dat_unit, mean(S_n_CR))
 
 # Define Operating Capacity as the maximum number of hours per month times the 
 #   Max Hourly Heat Input Rate.
@@ -63,21 +63,11 @@ for (i in 1:length(maxopp)){
            Capacity:= maxopp[i] * Max.Hourly.HI.Rate..MMBtu.hr.] ## MMBtu/month
 }
 
-# # Percent Capacity is Heat Input / Capacity
-# dat_unit$PctCapacity = dat_unit$Heat.Input..MMBtu / dat_unit$Capacity
-# with(dat_unit, mean(PctCapacity>1.5, na.rm = TRUE)) ## 0.1% capacity >1.5
-# dat_unit$PctCapacity[dat_unit$PctCapacity > 1.5] = NA ## > 150% capacity
-# 
-# # Define Sulfur Content Variables at the Unit Level
-# dat_unit[, Sulfur.Content := as.numeric(Sulfur.Content)]
-# dat_unit = CreateSulfurCategories(dat_unit, sulfurvar = dat_unit[, Sulfur.Content])
-
 # Output monthly unit-level data set
-saveRDS(dat_unit, file = "./data/MonthlyUnitData.RDS")
+saveRDS(dat_unit, file = here::here("data", "MonthlyUnitData.RDS"))
 
 # Make an annual unit data set
 yearly_dat_unit = dat_unit[, list(Sulfur.Content = mean(as.numeric(Sulfur.Content), na.rm = TRUE),
-  # AnySO2control = (sum(AnySO2control, na.rm = TRUE) >= 6), ## scrubber for at least half the year
   Has.Scrubber = (sum(Has.SO2.Scrub, na.rm=TRUE) > 6), # Has a scrubber at least half the year
   Initial.Year.of.Operation = Initial.Year.of.Operation[1],
   S_n_CR = (sum(S_n_CR, na.rm = TRUE) >=6), # SnCR for at least half the year
@@ -96,9 +86,8 @@ yearly_dat_unit = dat_unit[, list(Sulfur.Content = mean(as.numeric(Sulfur.Conten
   Region = Region[1]),
   by = c("uID", "Year")]
 
-
 # Save Annual Unit Level Data Set 
-saveRDS(yearly_dat_unit, file = "./data/AnnualUnitData.RDS")
+saveRDS(yearly_dat_unit, file = here::here("data", "AnnualUnitData.RDS"))
 
 ###############################
 ###   FACILITY-LEVEL DATA   ###
@@ -109,8 +98,7 @@ dat_unit[, Sulfur.Content := as.numeric(Sulfur.Content)]
 dat_facility = dat_unit[, list(nunits = length(unique(Unit.ID)),
   nunits_withsulfur = sum(!is.na(Sulfur.Content)),
   pctunits_withsulfur = sum(!is.na(Sulfur.Content))/length(unique(Unit.ID)),
-  meanSulfur = sum(Sulfur.Content * Heat.Input..MMBtu., na.rm = TRUE)/sum(Heat.Input..MMBtu.[!is.na(Heat.Input..MMBtu.) & !is.na(Sulfur.Content)]),
-  #ScrubbedFacility = sum(AnySO2control, na.rm = TRUE) == length(unique(Unit.ID)), ## Scrubbed if all units have an SO2 control
+  meanSulfur = sum(Sulfur.Content * Heat.Input..MMBtu., na.rm = TRUE) / sum(Heat.Input..MMBtu.[!is.na(Heat.Input..MMBtu.) & !is.na(Sulfur.Content)]),
   ScrubbedFacility = sum(Has.SO2.Scrub, na.rm = TRUE) == length(unique(Unit.ID)), ## Scrubbed if all units have an SO2 control
   initialYear = Initial.Year.of.Operation[1],
   pctS_n_CR = sum(S_n_CR, na.rm = TRUE)/length(unique(Unit.ID)),
@@ -134,10 +122,9 @@ dat_facility$pctCapacity[dat_facility$pctCapacity > 1.5] = NA ## > 150% capacity
 
 setkeyv(dat_facility, c("FacID", "Year", "Month"))
 setorderv(dat_facility, c("FacID", "Year", "Month"))
-# dat_facility
 
 # save monthly facility-Level data 
-saveRDS(dat_facility, file = "./data/MonthlyFacilityData.RDS")
+saveRDS(dat_facility, file = here::here("data", "MonthlyFacilityData.RDS"))
 
 # make an annual facility data set
 yearly_dat_facility = dat_facility[, list(nunits = nunits[1],
@@ -160,9 +147,7 @@ yearly_dat_facility = dat_facility[, list(nunits = nunits[1],
   Fac.Longitude = Fac.Longitude[1],
   Fac.FIPS = Fac.FIPS[1],
   Fac.Region = Fac.Region[1]),
-  #Fac.State = Fac.State[1],
-  #Region = Region[1]),
   by = c("FacID", "Year")]
 
 # save annual facility-level data 
-saveRDS(yearly_dat_facility, file = "./data/AnnualFacilityData.RDS")
+saveRDS(yearly_dat_facility, file = here::here("data", "AnnualFacilityData.RDS"))
