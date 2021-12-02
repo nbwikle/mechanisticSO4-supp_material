@@ -2,7 +2,7 @@
 
 *Authors: Nathan B. Wikle, Ephraim M. Hanks, Lucas R. F. Henneman, and Corwin M. Zigler*
 
-This repository contains source code and additional supplementary materials from our manuscript, "A Mechanistic Model of Annual Sulfate Concentrations in the United States."  Information on numerical methods for approximating discrete processes in discrete space can be found within `supp-material.pdf`. Relevant data have been archived (`doi = 10.5281/zenodo.4072504`) for reproducibility.
+This repository contains source code and additional supplementary materials from our manuscript, "A Mechanistic Model of Annual Sulfate Concentrations in the United States."  Information on numerical methods for approximating discrete processes in discrete space can be found within `supp-material.pdf`. Relevant data have been archived (`doi = 10.5281/zenodo.4072503`) for reproducibility.
 
 The following instructions provide details on how to run the source code underlying the analysis, including replication of the main figures and results.
 
