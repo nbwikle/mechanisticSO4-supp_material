@@ -5,15 +5,15 @@
 ###   format.
 
 ### Required packages ###
-library(raster)
+library(data.table)
 library(maps)
 library(ncdf4)
-library(data.table)
-library(stringr)
+library(raster)
 library(rgdal)
+library(stringr)
 
 ### read in relevant functions ###
-source("./src/functions.R")
+source(here::here("src", "functions.R"))
 
 ################################################################################
 ####### 1. Read in SO4 data, create raster
@@ -23,29 +23,12 @@ source("./src/functions.R")
 ###    http://fizz.phys.dal.ca/~atmos/martin/?page_id=140
 
 # 2011 SO4 data
-file.in <- "./data/GWRwSPEC_SO4_NA_201101_201112.nc"
+file.in <- here::here("data", "GWRwSPEC_SO4_NA_201101_201112.nc")
 so4.11 <- raster(file.in)
 
-# # 2012 SO4 data
-# file.in <- "./data/GWRwSPEC_SO4_NA_201201_201212.nc"
-# so4.12 <- raster(file.in)
-# 
-# # 2013 SO4 data
-# file.in <- "./data/GWRwSPEC_SO4_NA_201301_201312.nc"
-# so4.13 <- raster(file.in)
-# 
-# # 2014 SO4 data
-# file.in <- "./data/GWRwSPEC_SO4_NA_201401_201412.nc"
-# so4.14 <- raster(file.in)
-# 
-# # 2015
-# file.in <- "./data/GWRwSPEC_SO4_NA_201501_201512.nc"
-# so4.15 <- raster(file.in)
-
 # combine SO4 data 
-so4 <- stack(so4.11) #so4.12,so4.13,so4.14,so4.15)
+so4 <- stack(so4.11) 
 my.extent <- c(-100, -81.5, 30.5, 41.7) # extent covering central USA
-
 
 ### Creat two spatial extents, one slightly larger than the other.
 ###   This allows us to calculate wind velocities on the edge of the 
@@ -70,11 +53,7 @@ so4c <- aggregate(so4c, 4)
 central.usa <- aggregate(so4c, 4)
 
 # rename SO4 rasters by year
-names(central.usa) <- c("so4.2011") #, "so4.2012", "so4.2013", "so4.2014", "so4.2015")
-
-# # uncomment to plot raster
-# plot(central.usa$SO4.2011, main = "Example SO4 Raster")
-# map("state", add=TRUE)
+names(central.usa) <- c("so4.2011") 
 
 
 ################################################################################
@@ -85,25 +64,25 @@ names(central.usa) <- c("so4.2011") #, "so4.2012", "so4.2013", "so4.2014", "so4.
 ###   Papadogeorgou, Georgia, 2016, "Power Plant Emissions Data", 
 ###   https://doi.org/10.7910/DVN/M3D2NR, Harvard Dataverse, V2
 
-# # This creates 4 .RDS files, stored in ./data/power-plants
-# #   AnnualFacilityData.RDS
-# #   AnnualUnitData.RDS
-# #   MonthlyFacilityData.RDS
-# #   MonthlyUnitData.RDS
-# source("./src/make_facility_data.R") # ignore the warnings, they are unimportant
+# This step uses output from 'make-facility-data.R', which created four 
+# .RDS files, stored in ./data/power-plants
+#   AnnualFacilityData.RDS
+#   AnnualUnitData.RDS
+#   MonthlyFacilityData.RDS
+#   MonthlyUnitData.RDS
 
 # store monthly data in a list
 month <- list()
-month$fac <- readRDS("./data/MonthlyFacilityData.RDS")
-month$unit <- readRDS("./data/MonthlyUnitData.RDS")
+month$fac <- readRDS(here::here("data", "MonthlyFacilityData.RDS"))
+month$unit <- readRDS(here::here("data", "MonthlyUnitData.RDS"))
 
 # clean monthly unit data
 month$unit <- cleanData(month$unit)
 
 # store annual data in a list
 annual <- list()
-annual$fac <- readRDS("./data/AnnualFacilityData.RDS")
-annual$unit <- readRDS("./data/AnnualUnitData.RDS")
+annual$fac <- readRDS(here::here("data", "AnnualFacilityData.RDS"))
+annual$unit <- readRDS(here::here("data", "AnnualUnitData.RDS"))
 
 # rename columns
 colnames(month$unit) <- unitNames()
@@ -113,45 +92,17 @@ colnames(annual$unit) <- unitNames(TRUE)
 month.2011 <- trimYear(month, 2011)
 annual.2011 <- trimYear(annual, 2011)
 
-# month.2012 <- trimYear(month, 2012)
-# annual.2012 <- trimYear(annual, 2012)
-# 
-# month.2013 <- trimYear(month, 2013)
-# annual.2013 <- trimYear(annual, 2013)
-# 
-# month.2014 <- trimYear(month, 2014)
-# annual.2014 <- trimYear(annual, 2014)
-# 
-# month.2015 <- trimYear(month, 2015)
-# annual.2015 <- trimYear(annual, 2015)
-
 ### trim emissions data by spatial extent
 emissions.2011 <- trimData(annual.2011, my.extent)
-# emissions.2012 <- trimData(annual.2012, my.extent)
-# emissions.2013 <- trimData(annual.2013, my.extent)
-# emissions.2014 <- trimData(annual.2014, my.extent)
-# emissions.2015 <- trimData(annual.2015, my.extent)
 
 # save yearly emissions data in a list
-emissions <- list(em.2011 = emissions.2011) #,
-                  # em.2012 = emissions.2012,
-                  # em.2013 = emissions.2013,
-                  # em.2014 = emissions.2014,
-                  # em.2015 = emissions.2015)
+emissions <- list(em.2011 = emissions.2011)
 
 ### convert emissions data to X vector (design vector used in model)
 X.2011 <- createSimpleX(central.usa[[1]], emissions.2011$fac)
-# X.2012 <- createSimpleX(central.usa[[2]], emissions.2012$fac)
-# X.2013 <- createSimpleX(central.usa[[3]], emissions.2013$fac)
-# X.2014 <- createSimpleX(central.usa[[4]], emissions.2014$fac)
-# X.2015 <- createSimpleX(central.usa[[5]], emissions.2015$fac)
 
 # save emissions vectors in list
-X.list <- list(X.2011 = X.2011) # ,
-               # X.2012 = X.2012,
-               # X.2013 = X.2013,
-               # X.2014 = X.2014,
-               # X.2015 = X.2015)
+X.list <- list(X.2011 = X.2011) 
 
 
 ################################################################################
@@ -162,12 +113,11 @@ X.list <- list(X.2011 = X.2011) # ,
 wind.big <- list()
 wind.norm <- list()
 
-# for(j in 1:5){
 j = 1  
 
-uwind.raster <- yearRaster(j + 2000, met = "u-wind")
-vwind.raster <- yearRaster(j + 2000, met = "v-wind")
-  
+uwind.raster <- yearRaster(j + 2010, met = "u-wind")
+vwind.raster <- yearRaster(j + 2010, met = "v-wind")
+
 uwind.new <- trimToSO4(uwind.raster, central.usa[[j]])
 vwind.new <- trimToSO4(vwind.raster, central.usa[[j]])
   
@@ -183,10 +133,52 @@ names(normal) <- c("uwind", "vwind")
 wind.big[[j]] <- big
 wind.norm[[j]] <- normal
 
-# }
 
-names(wind.big) <- c("wind.2011") # , "wind.2012", "wind.2013", "wind.2014", "wind.2015")
-names(wind.norm) <- c("wind.2011") #, "wind.2012", "wind.2013", "wind.2014", "wind.2015")
+names(wind.big) <- c("wind.2011")
+names(wind.norm) <- c("wind.2011")
+
+
+wind.big.monthly <- list()
+wind.norm.monthly <- list()
+
+j = 1  
+
+uwind.raster.monthly <- yearRaster(j + 2010, met = "u-wind", return.mean = FALSE)
+vwind.raster.monthly <- yearRaster(j + 2010, met = "v-wind", return.mean = FALSE)
+
+uwind.new.monthly <- list()
+vwind.new.monthly <- list()
+
+for (t in 1:12){
+  uwind.new.monthly[[t]] <- trimToSO4(uwind.raster.monthly[[t]], central.usa[[j]])
+  vwind.new.monthly[[t]] <- trimToSO4(vwind.raster.monthly[[t]], central.usa[[j]])
+}
+
+uwind.big.monthly <- list()
+vwind.big.monthly <- list()
+
+for (t in 1:12){
+  uwind.big.monthly[[t]] <- trimToSO4(uwind.raster.monthly[[t]], so4big[[j]])
+  vwind.big.monthly[[t]] <- trimToSO4(vwind.raster.monthly[[t]], so4big[[j]])
+}
+
+months <- c("jan.2011", "feb.2011", "mar.2011", "apr.2011", "may.2011", "jun.2011", "jul.2011", 
+                      "aug.2011", "sep.2011", "oct.2011", "nov.2011", "dec.2011")
+
+uwind.big.monthly <- stack(uwind.big.monthly)
+vwind.big.monthly <- stack(vwind.big.monthly)
+big.monthly <- stack(uwind.big.monthly, vwind.big.monthly)
+
+names(big.monthly) <- c(paste("uwind.", months, sep = ""), paste("vwind.", months, sep = ""))
+  
+uwind.new.monthly <- stack(uwind.new.monthly)
+vwind.new.monthly <- stack(vwind.new.monthly)
+
+normal.monthly <- stack(uwind.new.monthly, vwind.new.monthly)
+names(normal.monthly) <- c(paste("uwind.", months, sep = ""), paste("vwind.", months, sep = ""))
+  
+wind.big.monthly <- big.monthly
+wind.norm.monthly <- normal.monthly
 
 
 ################################################################################
@@ -198,38 +190,29 @@ temp.list <- list()
 precip.list <- list()
 humidity.list <- list()
 
-# for(j in 1:5){
-
 j = 1
 # temperature
-t.raster <- yearRaster(j + 2000, met = "temp")
+t.raster <- yearRaster(j + 2010, met = "temp")
 t.new <- trimToSO4( t.raster, central.usa[[j]])
 temp.list[[j]] <- t.new
   
 # precipitation
-precip.raster <- yearRaster(j + 2000, met = "precip")
+precip.raster <- yearRaster(j + 2010, met = "precip")
 precip.new <- trimToSO4(precip.raster, central.usa[[j]])
 precip.list[[j]] <- precip.new
   
 # relative humidity
-hum.raster <- yearRaster(j + 2000, met = "humid")
+hum.raster <- yearRaster(j + 2010, met = "humid")
 hum.new <- trimToSO4(hum.raster, central.usa[[j]])
 humidity.list[[j]] <- hum.new
-# }
 
-temp.rast <- stack(temp.list[[1]]) # , 
-  # temp.list[[2]], temp.list[[3]], temp.list[[4]], temp.list[[5]])
+temp.rast <- stack(temp.list[[1]]) 
+precip.rast <- stack(precip.list[[1]]) 
+humid.rast <- stack(humidity.list[[1]]) 
 
-precip.rast <- stack(precip.list[[1]]) # , 
-  # precip.list[[2]], precip.list[[3]], precip.list[[4]], precip.list[[5]])
-
-humid.rast <- stack(humidity.list[[1]]) # , 
-  # humidity.list[[2]], humidity.list[[3]], humidity.list[[4]], humidity.list[[5]])
-
-
-names(temp.rast) <- c("temp.2011") #, "temp.2012", "temp.2013", "temp.2014", "temp.2015")
-names(precip.rast) <- c("precip.2011") #, "precip.2012", "precip.2013", "precip.2014", "precip.2015")
-names(humid.rast) <- c("humid.2011") #, "humid.2012", "humid.2013", "humid.2014", "humid.2015")
+names(temp.rast) <- c("temp.2011") 
+names(precip.rast) <- c("precip.2011") 
+names(humid.rast) <- c("humid.2011") 
 
 
 ################################################################################
@@ -237,8 +220,9 @@ names(humid.rast) <- c("humid.2011") #, "humid.2012", "humid.2013", "humid.2014"
 ################################################################################
 
 ### create and trim population density raster
-pop <- raster("./data/pden2010_60m.tif")
+pop <- raster(here::here("data", "pden2010_60m.tif"))
 pop <- trimToSO4(pop, central.usa[[1]])
+
 
 ################################################################################
 ####### 6. Save All Data (response = so4, emissions, wind, meteorology
@@ -253,8 +237,9 @@ central.usa.data <- list(so4 = central.usa,
                          pop = pop,
                          temp = temp.rast,
                          precip = precip.rast,
-                         rel.hum = humid.rast)
+                         rel.hum = humid.rast,
+                         wind.big.monthly = wind.big.monthly,
+                         wind.norm.monthly = wind.norm.monthly)
 
-saveRDS(central.usa.data, "./data/central-usa-data.RDS")
-
+saveRDS(central.usa.data, here::here("data", "central-usa-data.RDS"))
 
