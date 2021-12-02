@@ -7,7 +7,7 @@
 ###   to 1) clean data, 2) call MCMC functions, and 3) reproduce relevant
 ###   results and figures found in the manuscript. However, if run sequentially,
 ###   it will likely take a very long time (~115 hours on 2.9 GHz Dual-Core
-###   Intel Core i7). It is recommended that components of 'so4-mcmc.R' be
+###   Intel Core i7 processor). It is recommended that components of 'so4-mcmc.R' be
 ###   run in parallel.
 
 
@@ -48,9 +48,9 @@ dir.create(here::here("output"), showWarnings = FALSE)
 
 ### 3. Download data ###
 
-# data used in analysis, size = 1.7 GB, doi = 10.5281/zenodo.4072504
+# data used in analysis, size = 1.7 GB, doi = 10.5281/zenodo.4072503
 download_zenodo(
-  doi = "10.5281/zenodo.4072504",
+  doi = "10.5281/zenodo.4072503",
   path = here::here("data"), parallel = FALSE, quiet = FALSE
 )
 
