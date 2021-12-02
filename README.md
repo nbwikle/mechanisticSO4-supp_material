@@ -99,7 +99,7 @@ Before running any code, make sure the required R packages have been installed. 
 ### Step Three:
 
 - Downloads the raw data sources used in the analysis. These data are publicly available, and have been archived (doi = 10.5281/zenodo.4072504) for reproducibility. These data require 1.7 GB of space.
-- Time: ~2.5 seconds.
+- Time: ~2.5 minutes.
 - Output size: 1.7 GB.
 
 ### Step Four: 
