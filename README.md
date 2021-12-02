@@ -36,7 +36,7 @@ The code has been tested with R version 4.0.3, "Bunny-Wunnies Freak Out."  The f
 
 ## Data
 
-Data have been archived for download at the beginning of the analysis (doi = 10.5281/zenodo.4072504). They require 1.7 GB of space within the subdirectory. There are **four main data sources:**
+Data have been archived for download at the beginning of the analysis (doi = 10.5281/zenodo.4072503). They require 1.7 GB of space within the subdirectory. There are **four main data sources:**
 
 ### Coal-fired power plant emissions
 
